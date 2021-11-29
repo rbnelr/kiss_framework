@@ -54,7 +54,7 @@
 #include "kisslib/threadsafe_queue.hpp"
 #include "kisslib/timer.hpp"
 //#include "kisslib/animation.hpp"
-//#include "kisslib/collision.hpp"
+#include "kisslib/collision.hpp"
 //#include "kisslib/allocator.hpp"
 //#include "kisslib/containers.hpp"
 using namespace kiss;

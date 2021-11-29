@@ -40,7 +40,7 @@ float point_line_dist (float2 const& line_pos, float2 const& line_dir, float2 co
 	return length(offset);
 }
 
-float point_line_segment_dist (float2 const& line_pos, float2 const& line_dir, float2 const& point) {
+float point_line_segment_dist (float2 const& line_pos, float2 const& line_dir, float2 const& point, float2* out_point) {
 
 	float2 pos_rel = point - line_pos;
 
@@ -52,6 +52,7 @@ float point_line_segment_dist (float2 const& line_pos, float2 const& line_dir, f
 	float2 projected = t * line_dir;
 	float2 offset = pos_rel - projected;
 
+	if (out_point) *out_point = line_pos + line_dir * t;
 	return length(offset);
 }
 

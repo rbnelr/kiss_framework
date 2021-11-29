@@ -45,7 +45,7 @@ float point_square_dist (float2 const& square_pos, float2 const& square_size, fl
 float point_line_dist (float2 const& line_pos, float2 const& line_dir, float2 const& point);
 
 // distance of point to line segment (line_dir allowed to be 0)
-float point_line_segment_dist (float2 const& line_pos, float2 const& line_dir, float2 const& point);
+float point_line_segment_dist (float2 const& line_pos, float2 const& line_dir, float2 const& point, float2* out_point=nullptr);
 
 // cull (return true) if AABB is completely outside of one of the view frustrums planes
 // this cull 99% of the AABB that are invisible, but returns a false negative sometimes
