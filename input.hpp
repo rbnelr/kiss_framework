@@ -12,9 +12,11 @@ struct ButtonState {
 };
 
 struct Input {
-	//// Input Data
 	uint64_t frame_counter = 0;
 	
+	//// Time 
+	uint64_t frame_begin_ts;
+
 	// zero on first frame
 	// else duration of the prev frame scaled by time_scale but never larger than max_dt
 	float dt;
@@ -26,6 +28,14 @@ struct Input {
 
 	float real_dt; // for displaying fps etc.
 
+	// Max dt to prevent large physics time steps
+	float max_dt = 1.0f / 20;
+	// Timer scaler (does not scale unscaled_dt)
+	float time_scale = 1;
+	// Pause time (equivalent to time_scale=0)
+	bool pause_time = false;
+
+	//// Others
 	bool cursor_enabled = true;
 
 	int2 window_size;
@@ -36,14 +46,6 @@ struct Input {
 	int mouse_wheel_delta; // in "clicks"
 
 	ButtonState buttons[BUTTONS_COUNT];
-
-	//// Input Settings
-	// Max dt to prevent large physics time steps
-	float max_dt = 1.0f / 20;
-	// Timer scaler (does not scale unscaled_dt)
-	float time_scale = 1;
-	// Pause time (equivalent to time_scale=0)
-	bool pause_time = false;
 
 	// sens in  <screen heights / 1000 dots>  (dots from mouse dpi)
 	float mouselook_sens = 1.0f;
@@ -87,6 +89,19 @@ struct Input {
 			b.went_down = 0;
 			b.went_up = 0;
 		}
+	}
+
+	void get_time () {
+		// Calc next frame dt based on this frame duration
+		uint64_t now = get_timestamp();
+
+		real_dt = (float)(now - frame_begin_ts) / (float)timestamp_freq;
+		
+		dt = min(real_dt * (pause_time ? 0 : time_scale), max_dt);
+
+		unscaled_dt = min(real_dt, max_dt);
+
+		frame_begin_ts = now;
 	}
 
 	// used to ignore inputs that imgui has already captured

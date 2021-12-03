@@ -220,60 +220,74 @@ void update_files_changed (IApp* app, DirectoyChangeNotifier& file_changes) {
 	}
 }
 
+IApp* app;
+
+DirectoyChangeNotifier* g_file_changes;
+
+void window_frame () {
+	FrameMark;
+
+	glfw_sample_non_callback_input(g_window);
+
+	update_files_changed(app, *g_file_changes);
+
+	imgui_begin_frame();
+
+	common_imgui(g_window.input);
+
+	app->frame(g_window.input);
+
+	imgui_end_frame();
+
+	{
+		ZoneScopedN("glfwSwapBuffers");
+		glfwSwapBuffers(g_window.window);
+	}
+
+	g_window.input.clear_frame_input();
+	g_window.input.get_time();
+	g_window.input.frame_counter++;
+}
+
+// need to make sure window_frame only gets called if the (series of) glfw_window_size_event
+// was the result of a glfwPollEvents() call (which blocks until resizing is done, forcing me to do this in the first place)
+// glfw_window_size_event can also be emitted by switch_fullscreen for example
+// which casues recursive window_frame() calls, which are not desired and also trigger imgui asserts
+bool draw_on_size_events = false;
+
+// enable drawing frames when resizing the window
+void glfw_window_size_event (GLFWwindow* wnd, int width, int height) {
+	if (!draw_on_size_events) return;
+	
+	auto& I = ((Window*)glfwGetWindowUserPointer(wnd))->input;
+
+	window_frame();
+}
+
 int run_window (IApp* (*make_app)(), char const* window_title) {
 	
 	if (!renderer_setup(window_title))
 		return 1;
 
-	auto* app = make_app();
+	app = make_app();
 	
 	glfw_input_pre_gameloop(g_window);
-	g_window.input.dt = 0; // dt zero on first frame
-	uint64_t prev = get_timestamp();
 	
 	DirectoyChangeNotifier file_changes = DirectoyChangeNotifier("./", true);
+	g_file_changes = &file_changes;
 	
 	while (!glfwWindowShouldClose(g_window.window)) {
-		FrameMark;
-		
-		{ // Input sampling
-			ZoneScopedN("sample_input");
-			
-			g_window.input.clear_frame_input();
-			glfwPollEvents();
-
-			if (glfwWindowShouldClose(g_window.window))
-				break;
-
-			glfw_sample_non_callback_input(g_window);
-		}
-		
-		update_files_changed(app, file_changes);
-		
-		imgui_begin_frame();
-		
-		common_imgui(g_window.input);
-
-		app->frame(g_window.input);
-		
-		imgui_end_frame();
-
 		{
-			ZoneScopedN("glfwSwapBuffers");
-			glfwSwapBuffers(g_window.window);
+			ZoneScopedN("glfwPollEvents");
+			draw_on_size_events = true;
+			glfwPollEvents();
+			draw_on_size_events = false;
 		}
 
-		{ // Calc next frame dt based on this frame duration
-			ZoneScopedN("get_timestamp");
-			auto& i = g_window.input;
-
-			uint64_t now = get_timestamp();
-			i.real_dt = (float)(now - prev) / (float)timestamp_freq;
-			i.dt = min(i.real_dt * (i.pause_time ? 0 : i.time_scale), i.max_dt);
-			i.unscaled_dt = min(i.real_dt, i.max_dt);
-			prev = now;
-		}
-		g_window.input.frame_counter++;
+		if (glfwWindowShouldClose(g_window.window))
+			break;
+		
+		window_frame();
 	}
 	
 	delete app;
@@ -391,8 +405,13 @@ void glfw_input_pre_gameloop (Window& window) {
 	// Set initial cursor mode
 	window.input.set_cursor_mode(window, window.input.cursor_enabled);
 	window.input._prev_cursor_enabled = window.input.cursor_enabled;
+
+	g_window.input.dt = 0; // dt zero on first frame
+	g_window.input.frame_begin_ts = get_timestamp();
 }
 void glfw_sample_non_callback_input (Window& window) {
+	ZoneScoped;
+
 	glfwGetFramebufferSize(window.window, &window.input.window_size.x, &window.input.window_size.y);
 
 	double x, y;
@@ -410,7 +429,7 @@ void glfw_sample_non_callback_input (Window& window) {
 void glfw_key_event (GLFWwindow* wnd, int key, int scancode, int action, int mods) {
 	assert(action == GLFW_PRESS || action == GLFW_RELEASE || action == GLFW_REPEAT);
 	auto& window = *(Window*)glfwGetWindowUserPointer(wnd);
-	auto& input = window.input;
+	auto& I = window.input;
 
 	bool went_down =	action == GLFW_PRESS;
 	bool went_up =		action == GLFW_RELEASE;
@@ -431,73 +450,74 @@ void glfw_key_event (GLFWwindow* wnd, int key, int scancode, int action, int mod
 
 	// Toggle between Imgui interaction and game control
 	if (key == GLFW_KEY_F2) {
-		if (went_down) input.toggle_cursor_mode(window);
+		if (went_down) I.toggle_cursor_mode(window);
 		return;
 	}
 
 	// only process keys after GLFW_KEY_SPACE (32) to allow me to pack mouse buttons into the same array
 	if ((went_down || went_up) && key >= GLFW_KEY_SPACE && key <= GLFW_KEY_LAST) {
-		input.buttons[key].is_down = went_down;
-		input.buttons[key].went_down = went_down;
-		input.buttons[key].went_up = went_up;
+		I.buttons[key].is_down = went_down;
+		I.buttons[key].went_down = went_down;
+		I.buttons[key].went_up = went_up;
 	}
 }
 void glfw_char_event (GLFWwindow* wnd, unsigned int codepoint, int mods) {
-	auto& input = ((Window*)glfwGetWindowUserPointer(wnd))->input;
+	auto& I = ((Window*)glfwGetWindowUserPointer(wnd))->input;
 
 	// for typing input
 }
 void glfw_mouse_button_event (GLFWwindow* wnd, int button, int action, int mods) {
 	assert(action == GLFW_PRESS || action == GLFW_RELEASE);
-	auto& input = ((Window*)glfwGetWindowUserPointer(wnd))->input;
+	auto& I = ((Window*)glfwGetWindowUserPointer(wnd))->input;
 
 	bool went_down = action == GLFW_PRESS;
 	bool went_up =	 action == GLFW_RELEASE;
 
 	if ((went_down || went_up) && button >= GLFW_MOUSE_BUTTON_1 && button <= GLFW_MOUSE_BUTTON_8) {
-		input.buttons[button].is_down = went_down;
-		input.buttons[button].went_down = went_down;
-		input.buttons[button].went_up = went_up;
+		I.buttons[button].is_down = went_down;
+		I.buttons[button].went_down = went_down;
+		I.buttons[button].went_up = went_up;
 	}
 }
 
 // The initial event seems to report the same position as our initial glfwGetCursorPos, so that delta is fine
 // But when toggling the cursor from disabled to visible cursor jumps back to the prev position, and an event reports this as delta so we need to discard this 
 void glfw_mouse_move_event (GLFWwindow* wnd, double xpos, double ypos) {
-	auto& input = ((Window*)glfwGetWindowUserPointer(wnd))->input;
+	auto& I = ((Window*)glfwGetWindowUserPointer(wnd))->input;
 
-	float2 delta = float2((float)(xpos - input._prev_mouse_pos_x), (float)(ypos - input._prev_mouse_pos_y));
+	float2 delta = float2((float)(xpos - I._prev_mouse_pos_x), (float)(ypos - I._prev_mouse_pos_y));
 	delta.y = -delta.y; // convert to bottom up
 
-	input._prev_mouse_pos_x = xpos;
-	input._prev_mouse_pos_y = ypos;
+	I._prev_mouse_pos_x = xpos;
+	I._prev_mouse_pos_y = ypos;
 
 	bool cursor_enabled = glfwGetInputMode(wnd, GLFW_CURSOR) != GLFW_CURSOR_DISABLED;
-	bool cursor_toggled = cursor_enabled != input._prev_cursor_enabled;
-	input._prev_cursor_enabled = cursor_enabled;
+	bool cursor_toggled = cursor_enabled != I._prev_cursor_enabled;
+	I._prev_cursor_enabled = cursor_enabled;
 
 	bool discard_delta = cursor_toggled;
 
 	//logf("glfw_mouse_move_event: %7d: %f %f%s\n", frame_counter, delta.x, delta.y, discard_delta ? " (discarded)":"");
 
 	if (!discard_delta)
-		input.mouse_delta += delta;
+		I.mouse_delta += delta;
 }
 void glfw_mouse_scroll (GLFWwindow* wnd, double xoffset, double yoffset) {
-	auto* input = (Input*)&((Window*)glfwGetWindowUserPointer(wnd))->input;
+	auto& I = ((Window*)glfwGetWindowUserPointer(wnd))->input;
 
 	// assume int, if glfw_mouse_scroll ever gives us 0.2 for ex. this might break
 	// But the gameplay code wants to assume mousewheel moves in "clicks", for item swapping
 	// I've personally never seen a mousewheel that does not move in "clicks" anyway
-	input->mouse_wheel_delta += (int)ceil(abs(yoffset)) * (int)normalizesafe((float)yoffset); // -1.1f => -2    0 => 0    0.3f => +1
+	I.mouse_wheel_delta += (int)ceil(abs(yoffset)) * (int)normalizesafe((float)yoffset); // -1.1f => -2    0 => 0    0.3f => +1
 }
 
 void glfw_register_input_callbacks (Window& window) {
 	glfwSetWindowUserPointer(window.window, &window);
 
-	glfwSetKeyCallback			(window.window,	glfw_key_event);
-	glfwSetCharModsCallback		(window.window,	glfw_char_event);
-	glfwSetCursorPosCallback	(window.window,	glfw_mouse_move_event);
-	glfwSetMouseButtonCallback	(window.window,	glfw_mouse_button_event);
-	glfwSetScrollCallback		(window.window,	glfw_mouse_scroll);
+	glfwSetKeyCallback        (window.window, glfw_key_event);
+	glfwSetCharModsCallback   (window.window, glfw_char_event);
+	glfwSetCursorPosCallback  (window.window, glfw_mouse_move_event);
+	glfwSetMouseButtonCallback(window.window, glfw_mouse_button_event);
+	glfwSetScrollCallback     (window.window, glfw_mouse_scroll);
+	glfwSetWindowSizeCallback (window.window, glfw_window_size_event);
 }
