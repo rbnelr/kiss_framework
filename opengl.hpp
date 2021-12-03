@@ -517,27 +517,27 @@ struct VertexBufferInstancedI {
 	}
 };
 
-#define ATTRIB(IDX, TYPE, COMPONENTS, STRUCT, NAME) { \
+#define ATTRIB(IDX, TYPE, COMPONENTS, STRUCT, NAME) do { \
 	auto _idx = IDX; \
 	glEnableVertexAttribArray(_idx); \
 	glVertexAttribPointer(_idx, COMPONENTS, TYPE, false, sizeof(STRUCT), (void*)offsetof(STRUCT, NAME)); \
-}
-#define ATTRIBI(IDX, TYPE, COMPONENTS, STRUCT, NAME) { \
+} while (false)
+#define ATTRIBI(IDX, TYPE, COMPONENTS, STRUCT, NAME) do { \
 	auto _idx = IDX; \
 	glEnableVertexAttribArray(_idx); \
 	glVertexAttribPointerI(_idx, COMPONENTS, TYPE, false, sizeof(STRUCT), (void*)offsetof(STRUCT, NAME)); \
-}
+} while (false)
 
-#define ATTRIB(IDX, TYPE, COMPONENTS, STRUCT, NAME) { \
+#define ATTRIB(IDX, TYPE, COMPONENTS, STRUCT, NAME) do { \
 	auto _idx = IDX; \
 	glEnableVertexAttribArray(_idx); \
 	glVertexAttribPointer(_idx, COMPONENTS, TYPE, false, sizeof(STRUCT), (void*)offsetof(STRUCT, NAME)); \
-}
-#define ATTRIBI(IDX, TYPE, COMPONENTS, STRUCT, NAME) { \
+} while (false)
+#define ATTRIBI(IDX, TYPE, COMPONENTS, STRUCT, NAME) do { \
 	auto _idx = IDX; \
 	glEnableVertexAttribArray(_idx); \
 	glVertexAttribPointerI(_idx, COMPONENTS, TYPE, false, sizeof(STRUCT), (void*)offsetof(STRUCT, NAME)); \
-}
+} while (false)
 
 typedef void (*vertex_attrib_func)(int);
 /* Use like:
@@ -547,9 +547,9 @@ typedef void (*vertex_attrib_func)(int);
 		float4 col;
 
 		static void attrib (int idx) {
-			ATTRIB(GL_FLOAT, 3, Vertex, pos)
-			ATTRIB(GL_FLOAT, 2, Vertex, uv)
-			ATTRIB(GL_FLOAT, 4, Vertex, col)
+			ATTRIB(GL_FLOAT, 3, Vertex, pos);
+			ATTRIB(GL_FLOAT, 2, Vertex, uv);
+			ATTRIB(GL_FLOAT, 4, Vertex, col);
 		}
 	};
 */
@@ -781,15 +781,15 @@ struct CommonUniforms {
 
 struct LineRenderer {
 
-	Shader* shad = g_shaders.compile("lines");
+	Shader* shad = g_shaders.compile("line_render");
 
 	struct Vertex {
 		float3 pos;
 		float4 col;
 
 		static void attrib (int idx) {
-			ATTRIB(idx++, GL_FLOAT,3, Vertex, pos)
-			ATTRIB(idx++, GL_FLOAT,4, Vertex, col)
+			ATTRIB(idx++, GL_FLOAT,3, Vertex, pos);
+			ATTRIB(idx++, GL_FLOAT,4, Vertex, col);
 		}
 	};
 	VertexBuffer vbo = vertex_buffer<Vertex>("LineDrawer");
@@ -841,6 +841,7 @@ struct LineRenderer {
 		glBindVertexArray(vbo.vao);
 
 		for (int i=0; i<draw_count; ++i) {
+			if (draws[i].vertex_count == 0) continue;
 			
 			glSetEnable(GL_LINE_SMOOTH, draws[i].line_antialias);
 			glLineWidth(max(draws[i].line_width, 0.01f));
@@ -855,6 +856,130 @@ struct LineRenderer {
 	void render (StateManager& state, float line_width = 1.0f, bool line_antialias = true) {
 		DrawCall draw = { line_width, line_antialias, 0, (int)vertices.size() };
 		render(state, &draw, 1);
+	}
+};
+
+inline void _debug_vao (std::string msg="") {
+
+	msg.append( " ... querying VAO state:\n" );
+	int vab, eabb, eabbs=0, mva, isOn = 1, vaabb;
+	
+	glGetIntegerv( GL_VERTEX_ARRAY_BINDING, &vab );
+	glGetIntegerv( GL_ELEMENT_ARRAY_BUFFER_BINDING, &eabb );
+	if (eabb)
+		glGetBufferParameteriv( GL_ELEMENT_ARRAY_BUFFER, GL_BUFFER_SIZE, &eabbs );
+
+	msg.append( "  VAO: " + std::to_string( vab ) + "\n" );
+	msg.append( "  IBO: " + std::to_string( eabb ) + ", size=" + std::to_string( eabbs )  + "\n" );
+
+	glGetIntegerv( GL_MAX_VERTEX_ATTRIBS, &mva );
+	for (int i=0; i<mva; ++i) {
+		glGetVertexAttribiv( i, GL_VERTEX_ATTRIB_ARRAY_ENABLED, &isOn );
+		if (isOn) {
+			glGetVertexAttribiv( i, GL_VERTEX_ATTRIB_ARRAY_BUFFER_BINDING, &vaabb );
+			msg.append( "  attrib #" + std::to_string( i ) + ": VBO=" + std::to_string( vaabb ) + "\n" );
+		}
+	}
+	printf( msg.c_str() );
+}
+
+struct ShapeRenderer {
+	Shader* shad;
+
+	ShapeRenderer (const char* shad_name) {
+		shad = g_shaders.compile(shad_name);
+
+		upload_buffer(GL_ARRAY_BUFFER        , vbo.vbo, (GLsizeiptr)sizeof(VERTICES),     VERTICES,     GL_STATIC_DRAW);
+		upload_buffer(GL_ELEMENT_ARRAY_BUFFER, vbo.ebo, (GLsizeiptr)sizeof(QUAD_INDICES), QUAD_INDICES, GL_STATIC_DRAW);
+	}
+
+	struct Vertex {
+		float2 mesh_pos;
+	};
+	struct Instance {
+		float3 inst_pos;
+		float  inst_size; // in pixels
+		float4 inst_col;
+	};
+
+	static inline constexpr Vertex VERTICES[4] = {
+		{{ -0.5f, -0.5f }},
+		{{ +0.5f, -0.5f }},
+		{{ +0.5f, +0.5f }},
+		{{ -0.5f, +0.5f }},
+	};
+
+	VertexBufferInstancedI make_instanced_vbo () {
+		VertexBufferInstancedI buf = {"ShapeRenderer"};
+
+		glBindVertexArray(buf.vao);
+		glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, buf.ebo);
+		
+		glBindBuffer(GL_ARRAY_BUFFER, buf.vbo);
+		{
+			glEnableVertexAttribArray(0);
+			glVertexAttribPointer(0, 2, GL_FLOAT, false, sizeof(Vertex), (void*)offsetof(Vertex, mesh_pos));
+		}
+
+		glBindBuffer(GL_ARRAY_BUFFER, buf.instances);
+		{
+			glEnableVertexAttribArray(1);
+			glVertexAttribDivisor(1, 1);
+			glVertexAttribPointer(1, 3, GL_FLOAT, false, sizeof(Instance), (void*)offsetof(Instance, inst_pos));
+
+			glEnableVertexAttribArray(2);
+			glVertexAttribDivisor(2, 1);
+			glVertexAttribPointer(2, 1, GL_FLOAT, false, sizeof(Instance), (void*)offsetof(Instance, inst_size));
+
+			glEnableVertexAttribArray(3);
+			glVertexAttribDivisor(3, 1);
+			glVertexAttribPointer(3, 4, GL_FLOAT, false, sizeof(Instance), (void*)offsetof(Instance, inst_col));
+		}
+		glBindBuffer(GL_ARRAY_BUFFER, 0);
+
+		glBindVertexArray(0);
+		glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, 0);
+		
+		return buf;
+	}
+
+	VertexBufferInstancedI vbo = make_instanced_vbo();
+
+	std::vector<Instance> instances;
+
+	void begin () {
+		instances.clear();
+	}
+
+	int draw (float3 const& a, float size, float4 const& col) {
+		auto* i = push_back(instances, 1);
+
+		i->inst_pos  = a;
+		i->inst_size = size;
+		i->inst_col  = col;
+
+		return 1;
+	}
+
+	void upload_vertices () {
+		vbo.stream_instances(instances);
+	}
+
+	void render (StateManager& state) {
+		if (instances.empty()) return;
+
+		OGL_TRACE("ShapeRenderer");
+		ZoneScoped;
+
+		glUseProgram(shad->prog);
+
+		PipelineState s;
+		s.depth_test = false;
+		s.blend_enable = true;
+		state.set(s);
+
+		glBindVertexArray(vbo.vao);
+		glDrawElementsInstanced(GL_TRIANGLES, ARRLEN(QUAD_INDICES), GL_UNSIGNED_SHORT, (void*)0, (GLsizei)instances.size());
 	}
 };
 

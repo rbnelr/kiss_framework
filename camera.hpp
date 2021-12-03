@@ -34,9 +34,6 @@ struct View3D {
 
 		float2 uv = px_center * inv_viewport_size - 0.5f;
 
-		if (I.buttons[KEY_Q].went_down)
-			printf("aaaaaaaa");
-
 		float3 ray_dir = (float3x3)cam2world * float3(frust_near_size * uv, -clip_near);
 		float3 ray_pos = cam_pos + ray_dir;
 
@@ -169,10 +166,10 @@ struct Camera2D {
 	float2 _drag_pos = 0;
 
 	struct Binds {
-		Button move_left   = KEY_D;
-		Button move_right  = KEY_A;
-		Button move_down   = KEY_W;
-		Button move_up     = KEY_S;
+		Button move_left   = KEY_A;
+		Button move_right  = KEY_D;
+		Button move_down   = KEY_S;
+		Button move_up     = KEY_W;
 
 		//Button rot_left    = KEY_Q;
 		//Button rot_right   = KEY_E;

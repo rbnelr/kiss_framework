@@ -121,7 +121,7 @@ struct TextRenderer {
 		glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, buf.ebo);
 
 		glBindBuffer(GL_ARRAY_BUFFER, buf.vbo);
-		ATTRIB(0, GL_FLOAT, 2, GlyphQuad, pos)
+		ATTRIB(0, GL_FLOAT, 2, GlyphQuad, pos);
 		glBindBuffer(GL_ARRAY_BUFFER, 0);
 
 		{
