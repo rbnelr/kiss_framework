@@ -37,7 +37,8 @@
 #include "smhasher/MurmurHash2.h"
 
 namespace kissmath {
-
+	
+	/*
 	static constexpr uint64_t KB = 1024ull;
 	static constexpr uint64_t MB = 1024ull*1024;
 	static constexpr uint64_t GB = 1024ull*1024*1024;
@@ -111,14 +112,15 @@ namespace kissmath {
 		{ (float)1000*1000			, "M" }, // mega-
 		{ (float)1000*1000*1000		, "B" }, // giga-
 	});
+	*/
 
 	//template <typename T>
 	//inline std::string format_unit (T val, Units const& units) {
 	//	// TODO:
 	//}
-
+	
 	//// Getting scalar type + vector dimension from type
-
+	/*
 	template <typename T> inline constexpr bool is_matrix () { return false; }
 
 	template<> inline constexpr bool is_matrix<float2x2> () { return true; }
@@ -167,6 +169,7 @@ namespace kissmath {
 	template<> inline constexpr VectorTypeInfo get_type<int16_t > () { return { ScalarType::INT16, 1 }; }
 	template<> inline constexpr VectorTypeInfo get_type<uint16_t> () { return { ScalarType::UINT16, 1 }; }
 	template<> inline constexpr VectorTypeInfo get_type<uint64_t> () { return { ScalarType::UINT64, 1 }; }
+	*/
 
 	// round up x to y, assume y is power of two
 	template <typename T> inline constexpr T align_up (T x, T y) {
@@ -279,9 +282,9 @@ namespace kissmath {
 #endif
 
 	// Turns out that my MurmurHash1_32 code above was inlined and optimized into efficient code
-	// but this hash function retains the loops in the generated code even though it it inlined
+	// but this hash function retains the loops in the generated code even though it is inlined
 	// to fix that I made the len a compile time constant template argument, this gets us seperate code to be generated for different lengths
-	// when you want a hash of a variable (or long) length of course use the regular code
+	// when you want a hash of a variable (or long) length of course use the regular code (MurmurHash64A)
 	template <int LEN>
 	uint64_t MurmurHash64A_fixedlen ( const void * key, uint64_t seed )
 	{

@@ -2,6 +2,17 @@
 #include "kisslib/kissmath.hpp"
 #include "input.hpp"
 
+struct IApp {
+	virtual ~IApp () {};
+
+	virtual void frame (Window& window) = 0;
+
+	virtual void json_load () = 0;
+	virtual void json_save () = 0;
+};
+int run_game (IApp* make_game(), const char* window_title);
+
+
 struct Rect {
 	int2	 pos;
 	int2	 dim;
@@ -11,8 +22,11 @@ struct GLFWwindow;
 
 struct Window {
 	GLFWwindow* window;
-	Input input;
+	Input input = {};
 
+	DirectoyChangeNotifier file_changes;
+	IApp* _app; // only needed to support drawing on window resize
+	
 	// close down game after current frame
 	void close ();
 	
@@ -31,5 +45,3 @@ struct Window {
 	bool imgui_enabled = true;
 	bool imgui_show_demo_window = false;
 };
-
-inline Window g_window;

@@ -57,6 +57,7 @@
 #include "kisslib/collision.hpp"
 //#include "kisslib/allocator.hpp"
 //#include "kisslib/containers.hpp"
+#include "kisslib/serialization.hpp"
 using namespace kiss;
 
 #include "Tracy.hpp"

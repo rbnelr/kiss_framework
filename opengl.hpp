@@ -4,6 +4,8 @@
 #include "glad/glad.h"
 #include "TracyOpenGL.hpp"
 
+#include "dbgdraw.hpp"
+
 namespace ogl {
 
 inline void glSetEnable (GLenum cap, bool enabled) {
@@ -781,81 +783,74 @@ struct CommonUniforms {
 
 struct LineRenderer {
 
-	Shader* shad = g_shaders.compile("line_render");
+	Shader* shad = g_shaders.compile("dbg_lines");
 
-	struct Vertex {
+	struct _Vertex {
 		float3 pos;
 		float4 col;
 
 		static void attrib (int idx) {
-			ATTRIB(idx++, GL_FLOAT,3, Vertex, pos);
-			ATTRIB(idx++, GL_FLOAT,4, Vertex, col);
+			ATTRIB(idx++, GL_FLOAT,3, _Vertex, pos);
+			ATTRIB(idx++, GL_FLOAT,4, _Vertex, col);
 		}
 	};
-	VertexBuffer vbo = vertex_buffer<Vertex>("LineDrawer");
+	VertexBuffer vbo = vertex_buffer<_Vertex>("LineRenderer");
 
-	std::vector<Vertex> vertices;
-
-	void begin () {
-		vertices.clear();
-	}
-
-	struct DrawCall {
-		float line_width;
-		bool line_antialias;
-
-		int first_vertex;
-		int vertex_count = 0;
-	};
-
-	DrawCall begin_draw (float line_width = 1.0f, bool line_antialias = true) {
-		return { line_width, line_antialias, (int)vertices.size() };
-	}
-
-	int draw_line (float3 const& a, float3 const& b, float4 const& col) {
-		auto* v = push_back(vertices, 2);
-		
-		v[0].pos = a;
-		v[0].col = col;
-		v[1].pos = b;
-		v[1].col = col;
-
-		return 2;
-	}
-
-	void upload_vertices () {
-		vbo.stream(vertices);
-	}
-
-	void render (StateManager& state, DrawCall const* draws, int draw_count) {
-		OGL_TRACE("LineDrawer");
+	void render (StateManager& state, std::vector<DebugDraw::LineVertex>& lines) {
 		ZoneScoped;
+		
+		vbo.stream(lines);
 
-		glUseProgram(shad->prog);
-
-		PipelineState s;
-		s.depth_test = false;
-		s.blend_enable = true;
-		state.set(s);
-
-		glBindVertexArray(vbo.vao);
-
-		for (int i=0; i<draw_count; ++i) {
-			if (draws[i].vertex_count == 0) continue;
+		if (lines.size() > 0) {
+			OGL_TRACE("LineRenderer");
 			
-			glSetEnable(GL_LINE_SMOOTH, draws[i].line_antialias);
-			glLineWidth(max(draws[i].line_width, 0.01f));
+			glUseProgram(shad->prog);
 
-			glDrawArrays(GL_LINES, draws[i].first_vertex, (GLsizei)draws[i].vertex_count);
+			PipelineState s;
+			s.depth_test = false;
+			s.blend_enable = true;
+			state.set(s);
+
+			glBindVertexArray(vbo.vao);
+			glDrawArrays(GL_LINES, 0, (GLsizei)lines.size());
 		}
 	}
-	void render (StateManager& state, DrawCall const& draw) {
-		render(state, &draw, 1);
-	}
+};
+struct TriRenderer {
 
-	void render (StateManager& state, float line_width = 1.0f, bool line_antialias = true) {
-		DrawCall draw = { line_width, line_antialias, 0, (int)vertices.size() };
-		render(state, &draw, 1);
+	Shader* shad = g_shaders.compile("dbg_tris");
+
+	struct _Vertex {
+		float3 pos;
+		float3 norm;
+		float4 col;
+
+		static void attrib (int idx) {
+			ATTRIB(idx++, GL_FLOAT,3, _Vertex, pos);
+			ATTRIB(idx++, GL_FLOAT,3, _Vertex, norm);
+			ATTRIB(idx++, GL_FLOAT,4, _Vertex, col);
+		}
+	};
+	VertexBuffer vbo = vertex_buffer<_Vertex>("TriRenderer");
+
+	void render (StateManager& state, std::vector<DebugDraw::TriVertex>& lines) {
+		ZoneScoped;
+		
+		vbo.stream(lines);
+
+		if (lines.size() > 0) {
+			OGL_TRACE("LineRenderer");
+			
+			glUseProgram(shad->prog);
+
+			PipelineState s;
+			s.depth_test = false;
+			s.blend_enable = true;
+			state.set(s);
+
+			glBindVertexArray(vbo.vao);
+			glDrawArrays(GL_TRIANGLES, 0, (GLsizei)lines.size());
+		}
 	}
 };
 

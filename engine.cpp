@@ -16,44 +16,45 @@ void Window::set_vsync (bool vsync) {
 }
 
 //// Imgui stuff
-void imgui_setup () {
+void imgui_setup (Window& window) {
 	// Setup Dear ImGui context
 	IMGUI_CHECKVERSION();
 	ImGui::CreateContext();
 	ImGuiIO& io = ImGui::GetIO();
+	io.ConfigFlags |= ImGuiConfigFlags_DockingEnable;
 	//io.ConfigFlags |= ImGuiConfigFlags_NavEnableKeyboard;     // Enable Keyboard Controls
 	//io.ConfigFlags |= ImGuiConfigFlags_NavEnableGamepad;      // Enable Gamepad Controls
 
-	ImGui_ImplGlfw_InitForOpenGL(g_window.window, true);
+	ImGui_ImplGlfw_InitForOpenGL(window.window, true);
 	ImGui_ImplOpenGL3_Init();
 }
-void imgui_shutdown () {
+void imgui_shutdown (Window& window) {
 	ImGui_ImplOpenGL3_Shutdown();
 	ImGui_ImplGlfw_Shutdown();
 	ImGui::DestroyContext();
 }
-void imgui_begin_frame () {
+void imgui_begin_frame (Window& window) {
 	ImGui_ImplOpenGL3_NewFrame();
-	ImGui_ImplGlfw_NewFrame(g_window.imgui_enabled && g_window.input.cursor_enabled);
+	ImGui_ImplGlfw_NewFrame(window.imgui_enabled && window.input.cursor_enabled);
 
 	auto& io = ImGui::GetIO();
 	io.ConfigWindowsMoveFromTitleBarOnly = true;
 	if (io.WantCaptureKeyboard)
-		g_window.input.disable_keyboard();
+		window.input.disable_keyboard();
 	if (io.WantCaptureMouse)
-		g_window.input.disable_mouse();
+		window.input.disable_mouse();
 
 	ImGui::NewFrame();
 }
-void imgui_end_frame () {
+void imgui_end_frame (Window& window) {
 	ImGui::Render();
 
-	if (g_window.imgui_enabled)
+	if (window.imgui_enabled)
 		ImGui_ImplOpenGL3_RenderDrawData(ImGui::GetDrawData());
 }
 
 //// GLFW & Opengl setup
-bool renderer_setup (char const* window_title) {
+bool window_setup (Window& window, char const* window_title) {
 	if (!glfwInit()) {
 		printf("glfwInit error!");
 		return false;
@@ -73,19 +74,19 @@ bool renderer_setup (char const* window_title) {
 #endif
 	glfwWindowHint(GLFW_SRGB_CAPABLE, GLFW_TRUE);
 
-	g_window.window = glfwCreateWindow(1024, 1024, window_title, NULL, NULL);
-	if (!g_window.window) {
+	window.window = glfwCreateWindow(1280, 720, window_title, NULL, NULL);
+	if (!window.window) {
 		printf("glfwCreateWindow error!");
 		return false;
 	}
 
 	if (glfwRawMouseMotionSupported())
-		glfwSetInputMode(g_window.window, GLFW_RAW_MOUSE_MOTION, GLFW_TRUE);
+		glfwSetInputMode(window.window, GLFW_RAW_MOUSE_MOTION, GLFW_TRUE);
 
-	glfw_register_input_callbacks(g_window);
+	glfw_register_input_callbacks(window);
 
 	//
-	glfwMakeContextCurrent(g_window.window);
+	glfwMakeContextCurrent(window.window);
 
 	if (!gladLoadGLLoader((GLADloadproc)glfwGetProcAddress)) {
 		printf("gladLoadGLLoader error!");
@@ -104,7 +105,7 @@ bool renderer_setup (char const* window_title) {
 	if (glfwExtensionSupported("WGL_EXT_swap_control_tear"))
 		_vsync_on_interval = -1;
 
-	g_window.set_vsync(g_window.vsync);
+	window.set_vsync(window.vsync);
 
 	// srgb enabled by default if supported
 	// TODO: should I use glfwExtensionSupported or GLAD_GL_ARB_framebuffer_sRGB? does it make a difference?
@@ -127,63 +128,75 @@ bool renderer_setup (char const* window_title) {
 
 	TracyGpuContext;
 	
-	imgui_setup();
+	imgui_setup(window);
 	
 	return true;
 }
-void renderer_shutdown () {
-	imgui_shutdown();
+void window_shutdown (Window& window) {
+	imgui_shutdown(window);
 	g_shaders.shutdown();
 	glfwTerminate();
 }
 
-void common_imgui (Input& I) {
-	{
-		bool fullscreen = g_window.fullscreen;
-		bool borderless_fullscreen = g_window.borderless_fullscreen;
+void common_imgui (Window& window, IApp* app) {
 
-		bool changed = ImGui::Checkbox("fullscreen", &fullscreen);
+	if (ImGui::Begin("Misc")) {
+		{
+			bool fullscreen = window.fullscreen;
+			bool borderless_fullscreen = window.borderless_fullscreen;
+
+			bool changed = ImGui::Checkbox("fullscreen", &fullscreen);
+			ImGui::SameLine();
+			changed = ImGui::Checkbox("borderless", &borderless_fullscreen) || changed;
+
+			if (changed)
+				window.switch_fullscreen(fullscreen, borderless_fullscreen);
+		}
+
 		ImGui::SameLine();
-		changed = ImGui::Checkbox("borderless", &borderless_fullscreen) || changed;
+		bool vsync = window.vsync;
+		if (ImGui::Checkbox("Vsync", &vsync)) {
+			window.set_vsync(vsync);
+		}
 
-		if (changed)
-			g_window.switch_fullscreen(fullscreen, borderless_fullscreen);
+		ImGui::SameLine();
+		if (ImGui::Button("exit"))
+			window.close();
+
+		//ImGui::SameLine();
+		//ImGui::Checkbox("Logger", &g_logger.shown);
+
+		ImGui::SameLine();
+		ImGui::Checkbox("ImGui Demo", &window.imgui_show_demo_window);
+	
+		if (window.imgui_show_demo_window)
+			ImGui::ShowDemoWindow(&window.imgui_show_demo_window);
+	
+		ImGui::Text("debug.json:");
+		ImGui::SameLine();
+		if (ImGui::Button("Load [;]") || window.input.buttons[KEY_SEMICOLON].went_down)
+			app->json_load();
+		ImGui::SameLine();
+		if (ImGui::Button("Save [']") || window.input.buttons[KEY_APOSTROPHE].went_down)
+			app->json_save();
+
+
+		ImGui::Spacing();
+
+		if (imgui_Header("Performance", true)) {
+			window.fps_display.push_timing(window.input.real_dt);
+			window.fps_display.imgui_display("framerate", window.input.dt, true);
+
+			//ImGui::Text("Chunks drawn %4d / %4d", world->chunks.chunks.count() - world->chunks.count_culled, world->chunks.chunks.count());
+			ImGui::PopID();
+		}
+
+		window.input.imgui();
 	}
-
-	ImGui::SameLine();
-	bool vsync = g_window.vsync;
-	if (ImGui::Checkbox("Vsync", &vsync)) {
-		g_window.set_vsync(vsync);
-	}
-
-	ImGui::SameLine();
-	if (ImGui::Button("exit"))
-		g_window.close();
-
-	//ImGui::SameLine();
-	//ImGui::Checkbox("Logger", &g_logger.shown);
-
-	ImGui::SameLine();
-	ImGui::Checkbox("ImGui Demo", &g_window.imgui_show_demo_window);
-
-	if (g_window.imgui_show_demo_window)
-		ImGui::ShowDemoWindow(&g_window.imgui_show_demo_window);
-
-
-	ImGui::Spacing();
-
-	if (imgui_Header("Performance", true)) {
-		g_window.fps_display.push_timing(I.real_dt);
-		g_window.fps_display.imgui_display("framerate", I.dt, true);
-
-		//ImGui::Text("Chunks drawn %4d / %4d", world->chunks.chunks.count() - world->chunks.count_culled, world->chunks.chunks.count());
-		ImGui::PopID();
-	}
-
-	g_window.input.imgui();
+	ImGui::End();
 }
 
-void update_files_changed (IApp* app, DirectoyChangeNotifier& file_changes) {
+void update_files_changed (Window& window) {
 	ZoneScopedN("update_files_changed");
 	
 	// could poll this less frequently if it were to block the main thread significantly
@@ -193,7 +206,7 @@ void update_files_changed (IApp* app, DirectoyChangeNotifier& file_changes) {
 	kiss::ChangedFiles changed_files;
 	{
 		ZoneScopedN("file_changes.poll_changes()");
-		changed_files = file_changes.poll_changes();
+		changed_files = window.file_changes.poll_changes();
 	}
 	
 	if (changed_files.any()) {
@@ -218,82 +231,6 @@ void update_files_changed (IApp* app, DirectoyChangeNotifier& file_changes) {
 				break; // success
 		}
 	}
-}
-
-IApp* app;
-
-DirectoyChangeNotifier* g_file_changes;
-
-void window_frame () {
-	FrameMark;
-
-	glfw_sample_non_callback_input(g_window);
-
-	update_files_changed(app, *g_file_changes);
-
-	imgui_begin_frame();
-
-	common_imgui(g_window.input);
-
-	app->frame(g_window.input);
-
-	imgui_end_frame();
-
-	{
-		ZoneScopedN("glfwSwapBuffers");
-		glfwSwapBuffers(g_window.window);
-	}
-
-	g_window.input.clear_frame_input();
-	g_window.input.get_time();
-	g_window.input.frame_counter++;
-}
-
-// need to make sure window_frame only gets called if the (series of) glfw_window_size_event
-// was the result of a glfwPollEvents() call (which blocks until resizing is done, forcing me to do this in the first place)
-// glfw_window_size_event can also be emitted by switch_fullscreen for example
-// which casues recursive window_frame() calls, which are not desired and also trigger imgui asserts
-bool draw_on_size_events = false;
-
-// enable drawing frames when resizing the window
-void glfw_window_size_event (GLFWwindow* wnd, int width, int height) {
-	if (!draw_on_size_events) return;
-	
-	auto& I = ((Window*)glfwGetWindowUserPointer(wnd))->input;
-
-	window_frame();
-}
-
-int run_window (IApp* (*make_app)(), char const* window_title) {
-	
-	if (!renderer_setup(window_title))
-		return 1;
-
-	app = make_app();
-	
-	glfw_input_pre_gameloop(g_window);
-	
-	DirectoyChangeNotifier file_changes = DirectoyChangeNotifier("./", true);
-	g_file_changes = &file_changes;
-	
-	while (!glfwWindowShouldClose(g_window.window)) {
-		{
-			ZoneScopedN("glfwPollEvents");
-			draw_on_size_events = true;
-			glfwPollEvents();
-			draw_on_size_events = false;
-		}
-
-		if (glfwWindowShouldClose(g_window.window))
-			break;
-		
-		window_frame();
-	}
-	
-	delete app;
-	renderer_shutdown();
-	
-	return 0;
 }
 
 //// fullscreen mode
@@ -373,7 +310,7 @@ bool Window::switch_fullscreen (bool fullscreen, bool borderless_fullscreen) {
 	}
 
 	// reset vsync to make sure 
-	g_window.set_vsync(g_window.vsync);
+	set_vsync(vsync);
 
 	this->fullscreen = fullscreen;
 	this->borderless_fullscreen = borderless_fullscreen;
@@ -406,8 +343,8 @@ void glfw_input_pre_gameloop (Window& window) {
 	window.input.set_cursor_mode(window, window.input.cursor_enabled);
 	window.input._prev_cursor_enabled = window.input.cursor_enabled;
 
-	g_window.input.dt = 0; // dt zero on first frame
-	g_window.input.frame_begin_ts = get_timestamp();
+	window.input.dt = 0; // dt zero on first frame
+	window.input.frame_begin_ts = get_timestamp();
 }
 void glfw_sample_non_callback_input (Window& window) {
 	ZoneScoped;
@@ -511,6 +448,26 @@ void glfw_mouse_scroll (GLFWwindow* wnd, double xoffset, double yoffset) {
 	I.mouse_wheel_delta += (int)ceil(abs(yoffset)) * (int)normalizesafe((float)yoffset); // -1.1f => -2    0 => 0    0.3f => +1
 }
 
+// need to make sure window_frame only gets called if the (series of) glfw_window_size_event
+// was the result of a glfwPollEvents() call (which blocks until resizing is done, forcing me to do this in the first place)
+// glfw_window_size_event can also be emitted by switch_fullscreen for example
+// which casues recursive window_frame() calls
+// TODO: should switch_fullscreen even happen during resizing? why do we get input callbacks if we don't do glfwPollEvents?
+//      -> probably due to windows message queue weirdness (which is why we need this in the first place, blocking glfwPollEvents is just stupid)
+//      -> just leave this in since it fixes it perfectly
+bool draw_on_size_events = false;
+
+void window_frame (Window& window);
+
+// enable drawing frames when resizing the window
+void glfw_window_size_event (GLFWwindow* wnd, int width, int height) {
+	if (!draw_on_size_events) return;
+	
+	auto* window = (Window*)glfwGetWindowUserPointer(wnd);
+
+	window_frame(*window);
+}
+
 void glfw_register_input_callbacks (Window& window) {
 	glfwSetWindowUserPointer(window.window, &window);
 
@@ -521,3 +478,66 @@ void glfw_register_input_callbacks (Window& window) {
 	glfwSetScrollCallback     (window.window, glfw_mouse_scroll);
 	glfwSetWindowSizeCallback (window.window, glfw_window_size_event);
 }
+
+////
+void window_frame (Window& window) {
+	FrameMark;
+
+	glfw_sample_non_callback_input(window);
+
+	update_files_changed(window);
+
+	imgui_begin_frame(window);
+
+	common_imgui(window, window._app);
+
+	window._app->frame(window);
+
+	imgui_end_frame(window);
+
+	{
+		ZoneScopedN("glfwSwapBuffers");
+		glfwSwapBuffers(window.window);
+	}
+
+	window.input.clear_frame_input();
+	window.input.get_time();
+	window.input.frame_counter++;
+}
+
+int run_game (IApp* make_game(), const char* window_title) {
+	
+	Window window;
+	if (!window_setup(window, window_title))
+		return 1;
+	
+	window.file_changes.init("./", true);
+
+	IApp* app = make_game();
+	window._app = app;
+
+	app->json_load();
+	
+	glfw_input_pre_gameloop(window);
+	
+	while (!glfwWindowShouldClose(window.window)) {
+		{
+			ZoneScopedN("glfwPollEvents");
+			draw_on_size_events = true;
+			glfwPollEvents();
+			draw_on_size_events = false;
+		}
+
+		if (glfwWindowShouldClose(window.window))
+			break;
+		
+		window_frame(window);
+	}
+	
+	delete app;
+
+	window_shutdown(window);
+	
+	return 0;
+}
+

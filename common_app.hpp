@@ -5,13 +5,6 @@
 #include "camera.hpp"
 using namespace ogl;
 
-struct IApp {
-	virtual ~IApp () {}
-
-	virtual void frame (Input& I) = 0;
-};
-int run_window (IApp* (*make_app)(), char const* window_title);
-
 //// Reusable Opengl renderer
 namespace ogl {
 	struct Renderer {

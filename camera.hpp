@@ -308,6 +308,8 @@ struct Camera2D {
 };
 
 struct Flycam {
+	SERIALIZE(Flycam, pos, rot_aer, vfov, clip_near, clip_far, base_speed, max_speed, speedup_factor, fast_multiplier)
+
 	float3 pos = 0;
 	float3 rot_aer = 0;
 
