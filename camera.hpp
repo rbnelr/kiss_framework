@@ -107,8 +107,8 @@ inline void rotate_with_mouselook (Input& I, float vfov, float3* aer) {
 
 	float2 sens = I.mouselook_sens / 1000;
 	sens.x *= I.mouselook_sens_x_scale;
-	// sens scales with fov since muscle memory works with visual distances on screen, not with angles
-	// (mostly? 180deg flip is also muscle memory?)
+	// sens scales with fov since muscle memory works with visual distances on screen, not with in game angles
+	// (mostly? 180deg flip might also be muscle memory?)
 	float2 delta = raw_mouselook * vfov * sens;
 
 	azimuth   -= delta.x;

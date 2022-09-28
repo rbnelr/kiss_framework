@@ -12,6 +12,8 @@ struct ButtonState {
 };
 
 struct Input {
+	SERIALIZE(Input, mouselook_sens, mouselook_sens_x_scale)
+
 	uint64_t frame_counter = 0;
 	
 	//// Time 

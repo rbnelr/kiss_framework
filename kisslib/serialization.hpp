@@ -109,7 +109,17 @@ inline T load (char const* filename) {
 #define _JSON_PASTE19(func, v1, v2, v3, v4, v5, v6, v7, v8, v9, v10, v11, v12, v13, v14, v15, v16, v17, v18)		_JSON_PASTE2(func, v1) _JSON_PASTE18(func, v2, v3, v4, v5, v6, v7, v8, v9, v10, v11, v12, v13, v14, v15, v16, v17, v18)
 #define _JSON_PASTE20(func, v1, v2, v3, v4, v5, v6, v7, v8, v9, v10, v11, v12, v13, v14, v15, v16, v17, v18, v19)	_JSON_PASTE2(func, v1) _JSON_PASTE19(func, v2, v3, v4, v5, v6, v7, v8, v9, v10, v11, v12, v13, v14, v15, v16, v17, v18, v19)
 
-#define _JSON_TO(v1) j[#v1] = t.v1;
+template <typename T>
+inline void _prin (std::string s, T const& val) {
+	printf("serialize: %s - ?\n", s.c_str());
+}
+
+template<>
+inline void _prin<float> (std::string s, float const& val) {
+	printf("serialize: %s - %f\n", s.c_str(), val);
+}
+
+#define _JSON_TO(v1) j[#v1] = t.v1; _prin(#v1, t.v1);
 #define _JSON_FROM(v1) if (j.contains(#v1)) j.at(#v1).get_to(t.v1); // try get value from json
 
 #define SERIALIZE(Type, ...)  \

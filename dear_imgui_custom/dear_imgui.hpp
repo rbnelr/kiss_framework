@@ -57,29 +57,6 @@ static inline const lrgba LOG_LEVEL_COLS[] = {
 	srgba(255, 100, 40),
 };
 
-class Logger {
-	bool imgui_uncollapse = false;
-public:
-	struct Line {
-		char str[128 - sizeof(int)*2];
-		LogLevel level;
-		int frame;
-	};
-
-	std::vector<Line> lines;
-	bool shown = true;
-
-	bool show_levels[4] = { 0,1,1,1 };
-	int max_display_lines = 5000;
-
-	int added_this_frame = 0;
-	int counter = 0;
-
-	void imgui ();
-
-	void add_line (Line const& line);
-};
-
 struct Timing_Histogram {
 	RunningAverage<float> avg = RunningAverage<float>(64);
 	float latest_avg;

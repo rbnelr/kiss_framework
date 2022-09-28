@@ -3,6 +3,15 @@
 #include "camera.hpp"
 
 struct DebugDraw {
+	static constexpr lrgba COLS[] = {
+		{1,0,0,1},
+		{0,1,0,1},
+		{0,0,1,1},
+		{1,1,0,1},
+		{1,0,1,1},
+		{0,1,1,1},
+	};
+
 	struct LineVertex {
 		float3 pos;
 		float4 col;
@@ -19,18 +28,28 @@ struct DebugDraw {
 
 	std::vector<LineVertex> lines;
 	std::vector<TriVertex> tris;
-
-	static constexpr float3 _wire_cube_vertices[8] {
-		float3(-.5f,-.5f,-.5f),
-		float3(+.5f,-.5f,-.5f),
-		float3(+.5f,+.5f,-.5f),
-		float3(-.5f,+.5f,-.5f),
-		float3(-.5f,-.5f,+.5f),
-		float3(+.5f,-.5f,+.5f),
-		float3(+.5f,+.5f,+.5f),
-		float3(-.5f,+.5f,+.5f),
+	
+	static constexpr float2 _wire_quad_vertices[] {
+		float2(0,0),
+		float2(1,0),
+		float2(1,1),
+		float2(0,1),
 	};
-	static constexpr uint16_t _wire_cube_indices[12 * 2] {
+	static constexpr uint16_t _wire_quad_indices[] {
+		0,1,  1,2,  2,3,  3,0,
+	};
+
+	static constexpr float3 _wire_cube_vertices[] {
+		float3(0,0,0),
+		float3(1,0,0),
+		float3(1,1,0),
+		float3(0,1,0),
+		float3(0,0,1),
+		float3(1,0,1),
+		float3(1,1,1),
+		float3(0,1,1),
+	};
+	static constexpr uint16_t _wire_cube_indices[] {
 		// bottom lines
 		0,1,  1,2,  2,3,  3,0,
 		// vertical lines
@@ -87,12 +106,13 @@ struct DebugDraw {
 	void point (float3 const& pos, float3 const& size, lrgba const& col);
 	void vector (float3 const& pos, float3 const& dir, lrgba const& col);
 
+	void wire_quad (float3 const& pos, float2 size, lrgba const& col);
 	void wire_cube (float3 const& pos, float3 const& size, lrgba const& col);
 	void wire_sphere (float3 const& pos, float r, lrgba const& col, int angres=32, int wires=16);
 	void wire_cone (float3 const& pos, float ang, float length, float3x3 const& rot, lrgba const& col, int circres=16, int wires=8);
 	//void wire_frustrum (Camera_View const& view, lrgba const& col);
 	
-	void quad (float3 const& center, float2 size, lrgba const& col);
+	void quad (float3 const& pos, float2 size, lrgba const& col);
 	void cylinder (float3 const& base, float radius, float height, lrgba const& col, int sides=32);
 	
 	void axis_gizmo (View3D const& view, int2 const& viewport_size);

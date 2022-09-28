@@ -23,10 +23,23 @@ void DebugDraw::point (float3 const& pos, float3 const& size, lrgba const& col) 
 	*out++ = { pos + size * float3(-1,-1,+1), col };
 }
 
+void DebugDraw::wire_quad (float3 const& pos, float2 size, lrgba const& col) {
+	auto* out = push_back(lines, ARRLEN(_wire_quad_indices));
+
+	for (auto& idx : _wire_quad_indices) {
+		auto& v = _wire_quad_vertices[idx];
+
+		out->pos.x = v.x * size.x + pos.x;
+		out->pos.y = v.y * size.y + pos.y;
+		out->pos.z = pos.z;
+
+		out->col = col;
+
+		out++;
+	}
+}
 void DebugDraw::wire_cube (float3 const& pos, float3 const& size, lrgba const& col) {
-	size_t idx = lines.size();
-	lines.resize(idx + ARRLEN(_wire_cube_indices));
-	auto* out = &lines[idx];
+	auto* out = push_back(lines, ARRLEN(_wire_cube_indices));
 
 	for (auto& idx : _wire_cube_indices) {
 		auto& v = _wire_cube_vertices[idx];
@@ -142,15 +155,15 @@ void DebugDraw::wire_cone (float3 const& pos, float ang, float length, float3x3 
 	}
 }
 
-void DebugDraw::quad (float3 const& center, float2 size, lrgba const& col) {
+void DebugDraw::quad (float3 const& pos, float2 size, lrgba const& col) {
 	auto* out = push_back(tris, 6);
 	
-	*out++ = { center + float3(+0.5f,-0.5f, 0.0f), float3(0,0,1), col };
-	*out++ = { center + float3(+0.5f,+0.5f, 0.0f), float3(0,0,1), col };
-	*out++ = { center + float3(-0.5f,-0.5f, 0.0f), float3(0,0,1), col };
-	*out++ = { center + float3(-0.5f,-0.5f, 0.0f), float3(0,0,1), col };
-	*out++ = { center + float3(+0.5f,+0.5f, 0.0f), float3(0,0,1), col };
-	*out++ = { center + float3(-0.5f,+0.5f, 0.0f), float3(0,0,1), col };
+	*out++ = { pos + float3(size.x,      0, 0), float3(0,0,1), col };
+	*out++ = { pos + float3(size.x, size.y, 0), float3(0,0,1), col };
+	*out++ = { pos + float3(     0,      0, 0), float3(0,0,1), col };
+	*out++ = { pos + float3(     0,      0, 0), float3(0,0,1), col };
+	*out++ = { pos + float3(size.x, size.y, 0), float3(0,0,1), col };
+	*out++ = { pos + float3(     0, size.y, 0), float3(0,0,1), col };
 }
 
 void DebugDraw::cylinder (float3 const& base, float radius, float height, lrgba const& col, int sides) {

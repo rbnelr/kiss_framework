@@ -2,11 +2,10 @@
 
 #include "kisslib/clean_windows_h.hpp"
 
-#include "common_app.hpp"
-
 #include "dear_imgui_custom/imgui_impl_glfw.h"
 #include "dear_imgui_custom/imgui_impl_opengl3.h"
 
+#include "opengl.hpp"
 #include "GLFW/glfw3.h"
 
 inline int _vsync_on_interval = 1;
@@ -66,7 +65,7 @@ bool window_setup (Window& window, char const* window_title) {
 	glfwWindowHint(GLFW_OPENGL_PROFILE, GLFW_OPENGL_CORE_PROFILE);
 	//glfwWindowHint(GLFW_OPENGL_FORWARD_COMPAT, 1); // glLineWidth generated GL_INVALID_VALUE with GLFW_OPENGL_FORWARD_COMPAT
 
-	glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, 3);
+	glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, 4);
 	glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 3);
 
 #if RENDERER_DEBUG_OUTPUT
@@ -113,6 +112,16 @@ bool window_setup (Window& window, char const* window_title) {
 		glEnable(GL_FRAMEBUFFER_SRGB);
 	else
 		fprintf(stderr, "[OpenGL] No sRGB framebuffers supported! Shading will be wrong!\n");
+	
+	//if (glfwExtensionSupported("GL_ARB_clip_control"))
+	//	glClipControl(GL_LOWER_LEFT, GL_ZERO_TO_ONE);
+	//else
+	//	fprintf(stderr, "[OpenGL] GL_ARB_clip_control not supported, depth won't be correct!\n");
+
+	//if (	!glfwExtensionSupported("GL_NV_gpu_shader5") ||
+	//	!glfwExtensionSupported("GL_NV_shader_buffer_load")) {
+	//	clog(ERROR, "[OpenGL] GL_NV_gpu_shader5 or GL_NV_shader_buffer_load not supported!\n");
+	//}
 
 	glEnable(GL_TEXTURE_CUBE_MAP_SEAMLESS); // core since 3.2
 
@@ -171,7 +180,11 @@ void common_imgui (Window& window, IApp* app) {
 	
 		if (window.imgui_show_demo_window)
 			ImGui::ShowDemoWindow(&window.imgui_show_demo_window);
-	
+		
+		window.trigger_screenshot = ImGui::Button("Screenshot [F8]") || window.input.buttons[KEY_F8].went_down;
+		ImGui::SameLine();
+		ImGui::Checkbox("With HUD", &window.screenshot_hud);
+
 		ImGui::Text("debug.json:");
 		ImGui::SameLine();
 		if (ImGui::Button("Load [;]") || window.input.buttons[KEY_SEMICOLON].went_down)
@@ -505,7 +518,7 @@ void window_frame (Window& window) {
 	window.input.frame_counter++;
 }
 
-int run_game (IApp* make_game(), const char* window_title) {
+int run_game (IApp* make_game(Window&), const char* window_title) {
 	
 	Window window;
 	if (!window_setup(window, window_title))
@@ -513,7 +526,7 @@ int run_game (IApp* make_game(), const char* window_title) {
 	
 	window.file_changes.init("./", true);
 
-	IApp* app = make_game();
+	IApp* app = make_game(window);
 	window._app = app;
 
 	app->json_load();

@@ -10,7 +10,7 @@ struct IApp {
 	virtual void json_load () = 0;
 	virtual void json_save () = 0;
 };
-int run_game (IApp* make_game(), const char* window_title);
+int run_game (IApp* make_game(Window&), const char* window_title);
 
 
 struct Rect {
@@ -21,6 +21,8 @@ struct Rect {
 struct GLFWwindow;
 
 struct Window {
+	SERIALIZE(Window, input)
+
 	GLFWwindow* window;
 	Input input = {};
 
@@ -44,4 +46,7 @@ struct Window {
 
 	bool imgui_enabled = true;
 	bool imgui_show_demo_window = false;
+
+	bool screenshot_hud = false;
+	bool trigger_screenshot = false;
 };

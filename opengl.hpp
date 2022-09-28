@@ -1,10 +1,13 @@
 #pragma once
 #include "common.hpp"
-#include "camera.hpp"
+
 #include "glad/glad.h"
 #include "TracyOpenGL.hpp"
 
+#include "camera.hpp"
 #include "dbgdraw.hpp"
+
+#include "kisslib/stb_image_write.hpp"
 
 namespace ogl {
 
@@ -595,8 +598,8 @@ enum DepthFunc {
 };
 inline GLenum map_depth_func (DepthFunc func) {
 	switch (func) {
-		case DEPTH_INFRONT:  return GL_LEQUAL;
-		case DEPTH_BEHIND:   return GL_GEQUAL;
+		case DEPTH_INFRONT:	return GL_LEQUAL;
+		case DEPTH_BEHIND:	return GL_GEQUAL;
 		default: return 0;
 	}
 }
@@ -660,9 +663,9 @@ struct StateManager {
 		state = _override(state);
 
 		glSetEnable(GL_DEPTH_TEST, state.depth_test);
-		// use_reverse_depth
+		// 
 		glDepthFunc(map_depth_func(state.depth_func));
-		glClearDepth(0.0f);
+		glClearDepth(1.0f);
 		glDepthRange(0.0f, 1.0f);
 		glDepthMask(state.depth_write ? GL_TRUE : GL_FALSE);
 
@@ -750,6 +753,93 @@ struct StateManager {
 	void set (PipelineState const& s) {
 		auto o = _override(s);
 		set_no_override(o);
+	}
+
+	
+	// assume every temporarily bound texture is unbound again
+	// (by other texture uploading code etc.)
+
+	std::vector<GLenum> bound_texture_types;
+
+	struct TextureBind {
+		struct _Texture {
+			GLenum type;
+			GLuint tex;
+
+			_Texture (GLenum type, GLuint tex): type{type}, tex{tex} {}
+
+			_Texture (): type{0}, tex{0} {}
+			_Texture (Texture1D      const& tex): type{ GL_TEXTURE_1D       }, tex{tex} {}
+			_Texture (Texture2D      const& tex): type{ GL_TEXTURE_2D       }, tex{tex} {}
+			_Texture (Texture3D      const& tex): type{ GL_TEXTURE_3D       }, tex{tex} {}
+			_Texture (Texture2DArray const& tex): type{ GL_TEXTURE_2D_ARRAY }, tex{tex} {}
+		};
+		std::string_view	uniform_name;
+		_Texture			tex;
+		GLuint				sampler;
+
+		TextureBind (): uniform_name{}, tex{} {} // null -> empty texture unit
+
+		// allow no null sampler
+		TextureBind (std::string_view uniform_name, _Texture const& tex)
+			: uniform_name{uniform_name}, tex{tex}, sampler{0} {}
+		TextureBind (std::string_view uniform_name, _Texture const& tex, Sampler const& sampl)
+			: uniform_name{uniform_name}, tex{tex}, sampler{sampl} {}
+	};
+
+	// bind a set of textures into texture units
+	// and assign them to shader uniform samplers
+	void bind_textures (Shader* shad, TextureBind const* textures, size_t count) {
+		bound_texture_types.resize(std::max(bound_texture_types.size(), count));
+
+		for (int i=0; i<(int)count; ++i) {
+			auto& to_bind = textures[i];
+			auto& bound_type = bound_texture_types[i];
+			
+			glActiveTexture((GLenum)(GL_TEXTURE0 + i));
+
+			// can have multiple textures of differing types bound in the same texture unit
+			// this is super confusing in the graphics debugger, unbind if previous texture is a different type
+			// (otherwise we overwrite it anyway, this just saves one gl call)
+			if (to_bind.tex.type != bound_type && bound_type != 0) {
+				glBindTexture(bound_type, 0); // unbind previous
+				glBindSampler((GLuint)i, 0);
+			}
+
+			// overwrite previous texture binding
+			// could try to optimize this by detecting when rebinding same texture,
+			// but if at that point should just avoid calling this and do it manually instead
+			if (to_bind.tex.type != 0) {
+				glBindSampler((GLuint)i, to_bind.sampler);
+
+				glBindTexture(to_bind.tex.type, to_bind.tex.tex); // bind new
+
+				auto loc = shad->get_uniform_location(to_bind.uniform_name);
+				if (loc >= 0)
+					glUniform1i(loc, (GLint)i);
+			}
+
+			bound_type = to_bind.tex.type;
+		}
+
+		// unbind rest of texture units
+		for (int i=(int)count; i<(int)bound_texture_types.size(); ++i) {
+			auto& bound_type = bound_texture_types[i];
+
+			glActiveTexture((GLenum)(GL_TEXTURE0 + i));
+			if (bound_type != 0) {
+				// unbind previous
+				glBindSampler((GLuint)i, 0);
+				glBindTexture(bound_type, 0);
+				bound_type = 0;
+			}
+		}
+	}
+	void bind_textures (Shader* shad, std::initializer_list<TextureBind> textures) {
+		bind_textures(shad, textures.begin(), textures.size());
+	}
+	void bind_textures (Shader* shad, std::vector<TextureBind> const& textures) {
+		bind_textures(shad, textures.data(), textures.size());
 	}
 };
 
@@ -977,6 +1067,27 @@ struct ShapeRenderer {
 		glDrawElementsInstanced(GL_TRIANGLES, ARRLEN(QUAD_INDICES), GL_UNSIGNED_SHORT, (void*)0, (GLsizei)instances.size());
 	}
 };
+
+// take screenshot of current bound framebuffer
+inline void take_screenshot (int2 size) {
+	Image<srgb8> img (size);
+
+	glPixelStorei(GL_PACK_ALIGNMENT, 1);
+	glReadPixels(0,0, size.x, size.y, GL_RGB, GL_UNSIGNED_BYTE, img.pixels);
+
+	time_t t = time(0); // get time now
+	struct tm* now = localtime(&t);
+
+	char timestr [80];
+	strftime(timestr, 80, "%g%m%d-%H%M%S", now); // yy-mm-dd_hh-mm-ss
+
+	static int counter = 0; // counter to avoid overwriting files in edge cases
+	auto filename = prints("../screenshots/screen_%s_%d.jpg", timestr, counter++);
+	counter %= 100;
+
+	stbi_flip_vertically_on_write(true);
+	stbi_write_jpg(filename.c_str(), size.x, size.y, 3, img.pixels, 95);
+}
 
 } // namespace ogl
 using ogl::g_shaders;
