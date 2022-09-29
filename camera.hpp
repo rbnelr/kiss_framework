@@ -370,8 +370,8 @@ struct Flycam {
 			if (I.buttons[KEY_D]           .is_down) move_dir.x += 1;
 			if (I.buttons[KEY_W]           .is_down) move_dir.z -= 1;
 			if (I.buttons[KEY_S]           .is_down) move_dir.z += 1;
-			if (I.buttons[KEY_LEFT_CONTROL].is_down || I.buttons[KEY_Q].is_down) move_dir.y -= 1;
-			if (I.buttons[KEY_SPACE]       .is_down || I.buttons[KEY_E].is_down) move_dir.y += 1;
+			if (I.buttons[KEY_LEFT_CONTROL].is_down) move_dir.y -= 1;
+			if (I.buttons[KEY_SPACE]       .is_down) move_dir.y += 1;
 
 			move_dir = normalizesafe(move_dir);
 			float move_speed = length(move_dir); // could be analog with gamepad
