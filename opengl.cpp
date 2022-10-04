@@ -389,7 +389,7 @@ bool compile_shader (const char* name, const char* dbgname,
 		error = check_program(prog, name);
 		
 		*out_uniforms = get_uniforms(prog);
-		CommonUniforms::setup_shader_ubo(prog);
+		//CommonUniforms::setup_shader_ubo(prog);
 	}
 
 	for (auto stage : compiled_stages) {

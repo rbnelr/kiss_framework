@@ -2,6 +2,10 @@
 #include "kisslib/kissmath.hpp"
 #include "input.hpp"
 
+namespace ogl {
+	extern bool reverse_depth;
+}
+
 struct View3D {
 	// forward VP matrices
 	float4x4	world2clip;
@@ -45,6 +49,9 @@ struct View3D {
 };
 
 inline void ortho_cam2clip (float w, float h, float near, float far, float4x4* out_cam2clip, float4x4* out_clip2cam) {
+	
+	// TODO: reverse_depth ?
+
 	// cam2clip (z)  linear  [-near, -far] -> [-1,+1]
 	float a = -2.0f / (far - near);
 	float b = near * a - 1.0f;
@@ -73,8 +80,21 @@ inline void persp_cam2clip (float vfov, float aspect_wh, float near, float far, 
 
 	//float hfov = atanf(frust_scale.x) * 2.0f;
 
-	float a = (far + near) / (near - far);
-	float b = (2.0f * far * near) / (near - far);
+	
+	float a, b;
+	if (ogl::reverse_depth) {
+		// use_reverse_depth with use infinite far plane
+		// visible range on z axis in opengl and vulkan goes from -near to -inf
+		// depth formula is: (with input w=1) z' = near, w' = -z  ->  depth = near/-z
+		// depth values go from 1 at the near plane to 0 at infinity
+		// inverse formula ist -z = near / depth
+		far = 1000000.0f; // can't actually set far to be infinite if I want frustrum culling to work without modification
+		a = 0.0f;
+		b = near;
+	} else {
+		a = (far + near) / (near - far);
+		b = (2.0f * far * near) / (near - far);
+	}
 
 	if (out_cam2clip) {
 		*out_cam2clip = float4x4(
@@ -308,7 +328,7 @@ struct Camera2D {
 };
 
 struct Flycam {
-	SERIALIZE(Flycam, pos, rot_aer, vfov, clip_near, clip_far, base_speed, max_speed, speedup_factor, fast_multiplier)
+	SERIALIZE(Flycam, pos, rot_aer, vfov, clip_near, clip_far, base_speed, max_speed, speedup_factor, fast_multiplier, planar)
 
 	float3 pos = 0;
 	float3 rot_aer = 0;
@@ -324,6 +344,8 @@ struct Flycam {
 	float fast_multiplier = 4;
 
 	float cur_speed = 0;
+
+	bool planar = true;
 
 	Flycam (float3 pos=0, float3 rot_aer=0, float base_speed=0.5f): pos{pos}, rot_aer{rot_aer}, base_speed{base_speed} {}
 
@@ -349,6 +371,8 @@ struct Flycam {
 			ImGui::DragFloat("max_speed", &max_speed,   0.05f, 0, FLT_MAX, "%.3f", ImGuiSliderFlags_Logarithmic);
 			ImGui::DragFloat("speedup_factor", &speedup_factor, 0.001f);
 			ImGui::DragFloat("fast_multiplier", &fast_multiplier, 0.05f);
+
+			ImGui::Checkbox("planar", &planar);
 
 			ImGui::TreePop();
 		}
@@ -389,7 +413,15 @@ struct Flycam {
 
 			float3 delta_cam = cur_speed * move_dir * I.unscaled_dt;
 
-			pos += cam2world_rot * delta_cam;
+			if (planar) {
+				float2 delta2 = rotate2(rot_aer.x) * float2(delta_cam.x, -delta_cam.z);
+				pos.x += delta2.x;
+				pos.y += delta2.y;
+				pos.z += delta_cam.y;
+			}
+			else {
+				pos += cam2world_rot * delta_cam;
+			}
 		}
 
 		{ //// speed or fov change with mousewheel

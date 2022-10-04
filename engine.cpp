@@ -94,7 +94,7 @@ bool window_setup (Window& window, char const* window_title) {
 
 #if RENDERER_DEBUG_OUTPUT
 	if (glfwExtensionSupported("GL_ARB_debug_output")) {
-		glDebugMessageCallbackARB(ogl::debug_callback, &g_window);
+		glDebugMessageCallbackARB(ogl::debug_callback, &window);
 	#if RENDERER_DEBUG_OUTPUT_BREAKPOINT
 		glEnable(GL_DEBUG_OUTPUT_SYNCHRONOUS_ARB); // Call message on thread that call was made
 	#endif
@@ -113,10 +113,7 @@ bool window_setup (Window& window, char const* window_title) {
 	else
 		fprintf(stderr, "[OpenGL] No sRGB framebuffers supported! Shading will be wrong!\n");
 	
-	//if (glfwExtensionSupported("GL_ARB_clip_control"))
-	//	glClipControl(GL_LOWER_LEFT, GL_ZERO_TO_ONE);
-	//else
-	//	fprintf(stderr, "[OpenGL] GL_ARB_clip_control not supported, depth won't be correct!\n");
+	ogl::reverse_depth = glfwExtensionSupported("GL_ARB_clip_control");
 
 	//if (	!glfwExtensionSupported("GL_NV_gpu_shader5") ||
 	//	!glfwExtensionSupported("GL_NV_shader_buffer_load")) {
@@ -225,12 +222,12 @@ void update_files_changed (Window& window) {
 	if (changed_files.any()) {
 		ZoneScopedN("reload");
 		
-		// Repeat reloading of assets because reacting to filechanges often fails because of half-written files
-		int max_retries = 100;
-		int retry_delay = 10; // ms
-
-		for (int i=0; i<max_retries; ++i) {
-			Sleep(retry_delay); // start out with a delay in hopes of getting a working file the first time
+		//// Repeat reloading of assets because reacting to filechanges often fails because of half-written files
+		//int max_retries = 100;
+		//int retry_delay = 10; // ms
+		//
+		//for (int i=0; i<max_retries; ++i) {
+		//	Sleep(retry_delay); // start out with a delay in hopes of getting a working file the first time
 			
 			bool success = g_shaders.update_recompilation(changed_files);
 			
@@ -240,9 +237,9 @@ void update_files_changed (Window& window) {
 				try_reloading([&] () { return load_static_data(); });
 			}*/
 			
-			if (success)
-				break; // success
-		}
+		//	if (success)
+		//		break; // success
+		//}
 	}
 }
 

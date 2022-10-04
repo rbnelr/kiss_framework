@@ -11,6 +11,11 @@
 
 namespace ogl {
 
+//// Use reverse depth to fix depth precision issues if possible
+// requires float depth buffer and glClipControl
+// https://nlguillemot.wordpress.com/2016/12/07/reversed-z-in-opengl/
+inline bool reverse_depth = false;
+
 inline void glSetEnable (GLenum cap, bool enabled) {
 	if (enabled)
 		glEnable(cap);
@@ -238,16 +243,15 @@ struct Shaders {
 		s->dbgname = dbgname ? dbgname : name;
 		s->stages = stages;
 		s->macros = std::move(macros);
-		
-		if (!compile_shader(s->name.c_str(), s->dbgname.c_str(), s->stages, s->macros,
-				&s->prog, &s->uniforms, &s->src_files)) {
-			// will crash if attempt to be used, but 0 program in gl might also crash
-			// alternative: return dummy shader?
-			return nullptr;
-		}
+
+		bool success = compile_shader(s->name.c_str(), s->dbgname.c_str(), s->stages, s->macros,
+				&s->prog, &s->uniforms, &s->src_files);
 		
 		auto* ptr = s.get();
+		// remember shader regardless of compilation success to allow for shaders with errors
+		// to be fixed using update_recompilation()
 		shaders.push_back(std::move(s));
+		
 		return ptr;
 	}
 };
@@ -469,12 +473,19 @@ struct VertexBuffer {
 	Vao vao;
 	Vbo vbo;
 	VertexBuffer (std::string_view label): vao{label + ".vao"}, vbo{label + ".vbo"} {}
+	
+	template <typename VT> void upload (VT const* vertices, size_t vertex_count) {
+		upload_buffer(GL_ARRAY_BUFFER, vbo, (GLsizeiptr)vertex_count * sizeof(VT), vertices, GL_STATIC_DRAW);
+	}
+	template <typename VT> void stream (VT const* vertices, size_t vertex_count) {
+		stream_buffer(GL_ARRAY_BUFFER, vbo, (GLsizeiptr)vertex_count * sizeof(VT), vertices, GL_STREAM_DRAW);
+	}
 
 	template <typename VT> void upload (std::vector<VT> const& vertices) {
-		upload_buffer(GL_ARRAY_BUFFER, vbo, (GLsizeiptr)vertices.size() * sizeof(VT), vertices.data(), GL_STATIC_DRAW);
+		upload(vertices.data(), vertices.size());
 	}
 	template <typename VT> void stream (std::vector<VT> const& vertices) {
-		stream_buffer(GL_ARRAY_BUFFER, vbo, (GLsizeiptr)vertices.size() * sizeof(VT), vertices.data(), GL_STREAM_DRAW);
+		stream(vertices.data(), vertices.size());
 	}
 };
 struct VertexBufferI {
@@ -482,14 +493,21 @@ struct VertexBufferI {
 	Vbo vbo;
 	Ebo ebo;
 	VertexBufferI (std::string_view label): vao{label + ".vao"}, vbo{label + ".vbo"}, ebo{label + ".ebo"} {}
+	
+	template <typename VT, typename IT> void upload (VT const* vertices, size_t vertex_count, IT const* indices, size_t index_count) {
+		upload_buffer(GL_ARRAY_BUFFER        , vbo, (GLsizeiptr)vertex_count * sizeof(VT), vertices, GL_STATIC_DRAW);
+		upload_buffer(GL_ELEMENT_ARRAY_BUFFER, ebo, (GLsizeiptr)index_count  * sizeof(IT), indices , GL_STATIC_DRAW);
+	}
+	template <typename VT, typename IT> void stream (VT const* vertices, size_t vertex_count, IT const* indices, size_t index_count) {
+		stream_buffer(GL_ARRAY_BUFFER        , vbo, (GLsizeiptr)vertex_count * sizeof(VT), vertices, GL_STREAM_DRAW);
+		stream_buffer(GL_ELEMENT_ARRAY_BUFFER, ebo, (GLsizeiptr)index_count  * sizeof(IT), indices , GL_STREAM_DRAW);
+	}
 
 	template <typename VT, typename IT> void upload (std::vector<VT> const& vertices, std::vector<IT> const& indices) {
-		upload_buffer(GL_ARRAY_BUFFER        , vbo, (GLsizeiptr)vertices.size() * sizeof(VT), vertices.data(), GL_STATIC_DRAW);
-		upload_buffer(GL_ELEMENT_ARRAY_BUFFER, ebo, (GLsizeiptr) indices.size() * sizeof(IT),  indices.data(), GL_STATIC_DRAW);
+		upload(vertices.data(), vertices.size(), indices.data(), indices.size());
 	}
 	template <typename VT, typename IT> void stream (std::vector<VT> const& vertices, std::vector<IT> const& indices) {
-		stream_buffer(GL_ARRAY_BUFFER        , vbo, (GLsizeiptr)vertices.size() * sizeof(VT), vertices.data(), GL_STREAM_DRAW);
-		stream_buffer(GL_ELEMENT_ARRAY_BUFFER, ebo, (GLsizeiptr) indices.size() * sizeof(IT),  indices.data(), GL_STREAM_DRAW);
+		stream(vertices.data(), vertices.size(), indices.data(), indices.size());
 	}
 };
 
@@ -498,12 +516,19 @@ struct VertexBufferInstanced {
 	Vbo vbo;
 	Vbo instances;
 	VertexBufferInstanced (std::string_view label): vao{label + ".vao"}, vbo{label + ".vbo"}, instances{label + ".instances.vbo"} {}
+	
+	template <typename VT> void upload_mesh (VT const* vertices, size_t vertex_count) {
+		upload_buffer(GL_ARRAY_BUFFER, vbo, (GLsizeiptr)vertex_count * sizeof(VT), vertices, GL_STATIC_DRAW);
+	}
+	template <typename IT> void stream_instances (IT const* instance_data, size_t vertex_count) {
+		stream_buffer(GL_ARRAY_BUFFER, instances, (GLsizeiptr)vertex_count * sizeof(IT), instance_data, GL_STREAM_DRAW);
+	}
 
 	template <typename VT> void upload_mesh (std::vector<VT> const& vertices) {
-		upload_buffer(GL_ARRAY_BUFFER, vbo, (GLsizeiptr)vertices.size() * sizeof(VT), vertices.data(), GL_STATIC_DRAW);
+		upload_mesh(vertices.data(), vertices.size());
 	}
 	template <typename IT> void stream_instances (std::vector<IT> const& instance_data) {
-		stream_buffer(GL_ARRAY_BUFFER, instances, (GLsizeiptr)instance_data.size() * sizeof(IT), instance_data.data(), GL_STREAM_DRAW);
+		stream_instances(instance_data.data(), instance_data.size());
 	}
 };
 struct VertexBufferInstancedI {
@@ -513,12 +538,19 @@ struct VertexBufferInstancedI {
 	Vbo instances;
 	VertexBufferInstancedI (std::string_view label): vao{label + ".vao"}, vbo{label + ".vbo"}, ebo{label + ".ebo"}, instances{label + ".instances.vbo"} {}
 
+	template <typename VT, typename IT> void upload_mesh (VT const* vertices, size_t vertex_count, IT const* indices, size_t index_count) {
+		upload_buffer(GL_ARRAY_BUFFER        , vbo, (GLsizeiptr)vertex_count * sizeof(VT), vertices, GL_STATIC_DRAW);
+		upload_buffer(GL_ELEMENT_ARRAY_BUFFER, ebo, (GLsizeiptr)index_count  * sizeof(IT),  indices, GL_STATIC_DRAW);
+	}
+	template <typename IT> void stream_instances (IT const* instance_data, size_t vertex_count) {
+		stream_buffer(GL_ARRAY_BUFFER, instances, (GLsizeiptr)vertex_count * sizeof(IT), instance_data, GL_STREAM_DRAW);
+	}
+	
 	template <typename VT, typename IT> void upload_mesh (std::vector<VT> const& vertices, std::vector<IT> const& indices) {
-		upload_buffer(GL_ARRAY_BUFFER        , vbo, (GLsizeiptr)vertices.size() * sizeof(VT), vertices.data(), GL_STATIC_DRAW);
-		upload_buffer(GL_ELEMENT_ARRAY_BUFFER, ebo, (GLsizeiptr) indices.size() * sizeof(IT),  indices.data(), GL_STATIC_DRAW);
+		upload_mesh(vertices.data(), vertices.size(), indices.data(), indices.size());
 	}
 	template <typename IT> void stream_instances (std::vector<IT> const& instance_data) {
-		stream_buffer(GL_ARRAY_BUFFER, instances, (GLsizeiptr)instance_data.size() * sizeof(IT), instance_data.data(), GL_STREAM_DRAW);
+		stream_instances(instance_data.data(), instance_data.size());
 	}
 };
 
@@ -603,6 +635,13 @@ inline GLenum map_depth_func (DepthFunc func) {
 		default: return 0;
 	}
 }
+inline GLenum map_depth_func_reverse (DepthFunc func) {
+	switch (func) {
+		case DEPTH_INFRONT:	return GL_GEQUAL;
+		case DEPTH_BEHIND:	return GL_LEQUAL;
+		default: return 0;
+	}
+}
 
 enum CullFace {
 	CULL_BACK,
@@ -664,9 +703,20 @@ struct StateManager {
 
 		glSetEnable(GL_DEPTH_TEST, state.depth_test);
 		// 
-		glDepthFunc(map_depth_func(state.depth_func));
-		glClearDepth(1.0f);
-		glDepthRange(0.0f, 1.0f);
+		if (reverse_depth) {
+			glDepthFunc(map_depth_func_reverse(state.depth_func));
+			glClearDepth(0.0f);
+			glDepthRange(0.0f, 1.0f); // do not flip like this, since precision will be bad, need to flip in projection matrix
+
+			glClipControl(GL_LOWER_LEFT, GL_ZERO_TO_ONE);
+		}
+		else {
+			glDepthFunc(map_depth_func(state.depth_func));
+			glClearDepth(1.0f);
+			glDepthRange(0.0f, 1.0f);
+
+			glClipControl(GL_LOWER_LEFT, GL_NEGATIVE_ONE_TO_ONE);
+		}
 		glDepthMask(state.depth_write ? GL_TRUE : GL_FALSE);
 
 		glSetEnable(GL_SCISSOR_TEST, state.scissor_test);
@@ -692,7 +742,7 @@ struct StateManager {
 		{
 			assert(state.depth_test == !!glIsEnabled(GL_DEPTH_TEST));
 			GLint depth_func;		glGetIntegerv(GL_DEPTH_FUNC, &depth_func);
-			assert(map_depth_func(state.depth_func) == depth_func);
+			assert((reverse_depth ? map_depth_func_reverse(state.depth_func) : map_depth_func(state.depth_func)) == depth_func);
 			GLint depth_write;		glGetIntegerv(GL_DEPTH_WRITEMASK, &depth_write);
 			assert(state.depth_write == !!depth_write);
 
@@ -721,8 +771,10 @@ struct StateManager {
 
 		if (state.depth_test != s.depth_test)
 			glSetEnable(GL_DEPTH_TEST, s.depth_test);
-		if (state.depth_func != s.depth_func)
-			glDepthFunc(map_depth_func(s.depth_func));
+		if (state.depth_func != s.depth_func) {
+			if (reverse_depth) glDepthFunc(map_depth_func_reverse(state.depth_func));
+			else               glDepthFunc(map_depth_func(state.depth_func));
+		}
 		if (state.depth_write != s.depth_write)
 			glDepthMask(s.depth_write ? GL_TRUE : GL_FALSE);
 
@@ -808,7 +860,7 @@ struct StateManager {
 
 			// overwrite previous texture binding
 			// could try to optimize this by detecting when rebinding same texture,
-			// but if at that point should just avoid calling this and do it manually instead
+			// but at that point should just avoid calling this and do it manually keep it bound instead
 			if (to_bind.tex.type != 0) {
 				glBindSampler((GLuint)i, to_bind.sampler);
 
@@ -843,6 +895,7 @@ struct StateManager {
 	}
 };
 
+#if 0
 // Needs to be here so that setup_shader_ubo can be used by the Shader manager
 struct CommonUniforms {
 	static constexpr int UBO_BINDING = 0;
@@ -870,6 +923,7 @@ struct CommonUniforms {
 			glUniformBlockBinding(prog, block_idx, UBO_BINDING);
 	}
 };
+#endif
 
 struct LineRenderer {
 
@@ -887,6 +941,8 @@ struct LineRenderer {
 	VertexBuffer vbo = vertex_buffer<_Vertex>("LineRenderer");
 
 	void render (StateManager& state, std::vector<DebugDraw::LineVertex>& lines) {
+		if (!shad->prog) return;
+
 		ZoneScoped;
 		
 		vbo.stream(lines);
@@ -924,6 +980,8 @@ struct TriRenderer {
 	VertexBuffer vbo = vertex_buffer<_Vertex>("TriRenderer");
 
 	void render (StateManager& state, std::vector<DebugDraw::TriVertex>& lines) {
+		if (!shad->prog) return;
+		
 		ZoneScoped;
 		
 		vbo.stream(lines);
@@ -1065,6 +1123,115 @@ struct ShapeRenderer {
 
 		glBindVertexArray(vbo.vao);
 		glDrawElementsInstanced(GL_TRIANGLES, ARRLEN(QUAD_INDICES), GL_UNSIGNED_SHORT, (void*)0, (GLsizei)instances.size());
+	}
+};
+
+inline int calc_mipmaps (int w, int h) {
+	int count = 0;
+	for (;;) {
+		count++;
+		if (w == 1 && h == 1)
+			break;
+
+		w = max(w / 2, 1);
+		h = max(h / 2, 1);
+	}
+	return count;
+}
+
+struct RenderScale {
+
+	int2 size = -1;
+	float renderscale = 1.0f;
+
+	bool nearest = false;
+	
+	void imgui () {
+		ImGui::Text("res: %4d x %4d px (%5.2f Mpx)", size.x, size.y, (float)(size.x * size.y) / (1000*1000));
+		ImGui::SliderFloat("renderscale", &renderscale, 0.02f, 2.0f);
+
+		ImGui::Checkbox("nearest", &nearest);
+	}
+
+	bool update (int2 output_size) {
+		auto old_size = size;
+		size = max(1, roundi((float2)output_size * renderscale));
+
+		return old_size != size;
+	}
+};
+
+// framebuffer for rendering at different resolution and to make sure we get float buffers
+struct FramebufferTexture {
+	Fbo fbo		= {};
+	Texture2D color	= {};
+	Texture2D depth	= {};
+
+	RenderScale renderscale;
+
+	void imgui () {
+		renderscale.imgui();
+	}
+
+	static constexpr GLenum color_format = GL_RGBA16F;// GL_RGBA32F   GL_SRGB8_ALPHA8
+	static constexpr GLenum depth_format = GL_DEPTH_COMPONENT32F;
+	static constexpr bool color_mips = true;
+
+	void update (int2 window_size) {
+		if (renderscale.update(window_size)) {
+			glActiveTexture(GL_TEXTURE0); // try clobber consistent texture at least
+		
+			fbo    = {"Framebuffer.fbo"  };
+			color  = {"Framebuffer.color"};
+			depth  = {"Framebuffer.depth"};
+		
+			GLint levels = 1;
+			if (color_mips)
+				levels = calc_mipmaps(renderscale.size.x, renderscale.size.y);
+		
+			// create new
+			glBindTexture(GL_TEXTURE_2D, color);
+			glTexStorage2D(GL_TEXTURE_2D, levels, color_format, renderscale.size.x, renderscale.size.y);
+			glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_BASE_LEVEL, 0);
+			glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAX_LEVEL, levels-1);
+			glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+			glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+		
+			glBindTexture(GL_TEXTURE_2D, depth);
+			glTexStorage2D(GL_TEXTURE_2D, 1, depth_format, renderscale.size.x, renderscale.size.y);
+			glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_BASE_LEVEL, 0);
+			glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAX_LEVEL, 0);
+			glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+			glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+		
+			glBindFramebuffer(GL_FRAMEBUFFER, fbo);
+
+			glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, color, 0);
+			glFramebufferTexture2D(GL_FRAMEBUFFER, GL_DEPTH_ATTACHMENT, GL_TEXTURE_2D, depth, 0);
+		
+			GLenum status = glCheckFramebufferStatus(GL_FRAMEBUFFER);
+			if (status != GL_FRAMEBUFFER_COMPLETE) {
+				fprintf(stderr, "glCheckFramebufferStatus: %x\n", status);
+			}
+
+			glBindTexture(GL_TEXTURE_2D, 0);
+			glBindFramebuffer(GL_FRAMEBUFFER, 0);
+		}
+	}
+	
+	void bind () {
+		glBindFramebuffer(GL_FRAMEBUFFER, fbo);
+	}
+	void blit_to_screen (int2 window_size) {
+		glBindFramebuffer(GL_READ_FRAMEBUFFER, fbo);
+		glBindFramebuffer(GL_DRAW_FRAMEBUFFER, 0);
+
+		glBlitFramebuffer(0,0, window_size.x,window_size.y,
+		                  0,0, window_size.x,window_size.y,
+		                  GL_COLOR_BUFFER_BIT, renderscale.nearest ? GL_NEAREST : GL_LINEAR);
+		
+		glBindFramebuffer(GL_READ_FRAMEBUFFER, fbo);
+		glBindFramebuffer(GL_FRAMEBUFFER, 0);
 	}
 };
 
