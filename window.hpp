@@ -44,6 +44,8 @@ struct Window {
 	bool vsync = true;
 	void set_vsync (bool vsync);
 
+	void draw_imgui ();
+
 	bool imgui_enabled = true;
 	bool imgui_show_demo_window = false;
 

@@ -503,8 +503,6 @@ void window_frame (Window& window) {
 
 	window._app->frame(window);
 
-	imgui_end_frame(window);
-
 	{
 		ZoneScopedN("glfwSwapBuffers");
 		glfwSwapBuffers(window.window);
@@ -513,6 +511,10 @@ void window_frame (Window& window) {
 	window.input.clear_frame_input();
 	window.input.get_time();
 	window.input.frame_counter++;
+}
+
+void Window::draw_imgui () {
+	imgui_end_frame(*this);
 }
 
 int run_game (IApp* make_game(Window&), const char* window_title) {

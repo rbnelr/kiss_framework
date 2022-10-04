@@ -400,6 +400,23 @@ public:
 
 	operator GLuint () const { return tex; }
 };
+class Texture2DMultisample {
+	GLuint tex = 0;
+public:
+	MOVE_ONLY_CLASS_MEMBER(Texture2DMultisample, tex);
+
+	Texture2DMultisample () {} // not allocated
+	Texture2DMultisample (std::string_view label) { // allocate
+		glGenTextures(1, &tex);
+		glBindTexture(GL_TEXTURE_2D_MULTISAMPLE, tex);
+		OGL_DBG_LABEL(GL_TEXTURE, tex, label);
+	}
+	~Texture2DMultisample () {
+		if (tex) glDeleteTextures(1, &tex);
+	}
+
+	operator GLuint () const { return tex; }
+};
 class Texture3D {
 	GLuint tex = 0;
 public:
@@ -1140,32 +1157,49 @@ inline int calc_mipmaps (int w, int h) {
 }
 
 struct RenderScale {
+	SERIALIZE(RenderScale, renderscale, MSAA, nearest)
 
 	int2 size = -1;
 	float renderscale = 1.0f;
 
+	int MSAA = 1;
+
 	bool nearest = false;
+
+	bool changed = false;
 	
 	void imgui () {
-		ImGui::Text("res: %4d x %4d px (%5.2f Mpx)", size.x, size.y, (float)(size.x * size.y) / (1000*1000));
-		ImGui::SliderFloat("renderscale", &renderscale, 0.02f, 2.0f);
+		if (ImGui::TreeNode("RenderScale")) {
 
-		ImGui::Checkbox("nearest", &nearest);
+			ImGui::Text("res: %4d x %4d px (%5.2f Mpx)", size.x, size.y, (float)(size.x * size.y) / (1000*1000));
+			ImGui::SliderFloat("renderscale", &renderscale, 0.02f, 2.0f);
+
+			changed = ImGui::Checkbox("nearest", &nearest) || changed;
+
+			changed = ImGui::SliderInt("MSAA", &MSAA, 1, 16) || changed;
+
+			ImGui::TreePop();
+		}
 	}
 
 	bool update (int2 output_size) {
 		auto old_size = size;
 		size = max(1, roundi((float2)output_size * renderscale));
 
-		return old_size != size;
+		bool upd = old_size != size || changed;
+		changed = false;
+		return upd;
 	}
 };
 
 // framebuffer for rendering at different resolution and to make sure we get float buffers
 struct FramebufferTexture {
-	Fbo fbo		= {};
-	Texture2D color	= {};
-	Texture2D depth	= {};
+	Fbo fbo = {};
+	Texture2DMultisample color = {};
+	Texture2DMultisample depth = {};
+	
+	Fbo fbo_resolve = {};
+	Texture2D color_resolve = {};
 
 	RenderScale renderscale;
 
@@ -1174,6 +1208,7 @@ struct FramebufferTexture {
 	}
 
 	static constexpr GLenum color_format = GL_RGBA16F;// GL_RGBA32F   GL_SRGB8_ALPHA8
+	static constexpr GLenum color_format_resolve = GL_SRGB8_ALPHA8;
 	static constexpr GLenum depth_format = GL_DEPTH_COMPONENT32F;
 	static constexpr bool color_mips = true;
 
@@ -1184,36 +1219,61 @@ struct FramebufferTexture {
 			fbo    = {"Framebuffer.fbo"  };
 			color  = {"Framebuffer.color"};
 			depth  = {"Framebuffer.depth"};
+
+			fbo_resolve   = {"Framebuffer.fbo_resolve"  };
+			color_resolve = {"Framebuffer.color_resolve"};
 		
 			GLint levels = 1;
 			if (color_mips)
 				levels = calc_mipmaps(renderscale.size.x, renderscale.size.y);
-		
+			
 			// create new
-			glBindTexture(GL_TEXTURE_2D, color);
-			glTexStorage2D(GL_TEXTURE_2D, levels, color_format, renderscale.size.x, renderscale.size.y);
-			glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_BASE_LEVEL, 0);
-			glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAX_LEVEL, levels-1);
-			glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
-			glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
-		
-			glBindTexture(GL_TEXTURE_2D, depth);
-			glTexStorage2D(GL_TEXTURE_2D, 1, depth_format, renderscale.size.x, renderscale.size.y);
-			glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_BASE_LEVEL, 0);
-			glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAX_LEVEL, 0);
-			glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
-			glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
-		
-			glBindFramebuffer(GL_FRAMEBUFFER, fbo);
 
-			glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, color, 0);
-			glFramebufferTexture2D(GL_FRAMEBUFFER, GL_DEPTH_ATTACHMENT, GL_TEXTURE_2D, depth, 0);
+			{
+				glBindTexture(GL_TEXTURE_2D_MULTISAMPLE, color);
+				glTexStorage2DMultisample(GL_TEXTURE_2D_MULTISAMPLE, renderscale.MSAA, color_format, renderscale.size.x, renderscale.size.y, GL_TRUE);
+				glTexParameteri(GL_TEXTURE_2D_MULTISAMPLE, GL_TEXTURE_BASE_LEVEL, 0);
+				glTexParameteri(GL_TEXTURE_2D_MULTISAMPLE, GL_TEXTURE_MAX_LEVEL, levels-1);
+				//glTexParameteri(GL_TEXTURE_2D_MULTISAMPLE, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+				//glTexParameteri(GL_TEXTURE_2D_MULTISAMPLE, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+			
+				glBindTexture(GL_TEXTURE_2D_MULTISAMPLE, depth);
+				glTexStorage2DMultisample(GL_TEXTURE_2D_MULTISAMPLE, renderscale.MSAA, depth_format, renderscale.size.x, renderscale.size.y, GL_TRUE);
+				glTexParameteri(GL_TEXTURE_2D_MULTISAMPLE, GL_TEXTURE_BASE_LEVEL, 0);
+				glTexParameteri(GL_TEXTURE_2D_MULTISAMPLE, GL_TEXTURE_MAX_LEVEL, 0);
+				//glTexParameteri(GL_TEXTURE_2D_MULTISAMPLE, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+				//glTexParameteri(GL_TEXTURE_2D_MULTISAMPLE, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+				
+				glBindFramebuffer(GL_FRAMEBUFFER, fbo);
+
+				glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D_MULTISAMPLE, color, 0);
+				glFramebufferTexture2D(GL_FRAMEBUFFER, GL_DEPTH_ATTACHMENT, GL_TEXTURE_2D_MULTISAMPLE, depth, 0);
 		
-			GLenum status = glCheckFramebufferStatus(GL_FRAMEBUFFER);
-			if (status != GL_FRAMEBUFFER_COMPLETE) {
-				fprintf(stderr, "glCheckFramebufferStatus: %x\n", status);
+				GLenum status = glCheckFramebufferStatus(GL_FRAMEBUFFER);
+				if (status != GL_FRAMEBUFFER_COMPLETE) {
+					fprintf(stderr, "glCheckFramebufferStatus: %x\n", status);
+				}
+			}
+			
+			{
+				glBindTexture(GL_TEXTURE_2D, color_resolve);
+				glTexStorage2D(GL_TEXTURE_2D, levels, color_format_resolve, renderscale.size.x, renderscale.size.y);
+				glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_BASE_LEVEL, 0);
+				glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAX_LEVEL, levels-1);
+				glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+				glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+
+				glBindFramebuffer(GL_FRAMEBUFFER, fbo_resolve);
+
+				glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, color_resolve, 0);
+		
+				GLenum status = glCheckFramebufferStatus(GL_FRAMEBUFFER);
+				if (status != GL_FRAMEBUFFER_COMPLETE) {
+					fprintf(stderr, "glCheckFramebufferStatus: %x\n", status);
+				}
 			}
 
+			glBindTexture(GL_TEXTURE_2D_MULTISAMPLE, 0);
 			glBindTexture(GL_TEXTURE_2D, 0);
 			glBindFramebuffer(GL_FRAMEBUFFER, 0);
 		}
@@ -1222,15 +1282,24 @@ struct FramebufferTexture {
 	void bind () {
 		glBindFramebuffer(GL_FRAMEBUFFER, fbo);
 	}
-	void blit_to_screen (int2 window_size) {
+	void resolve_and_blit_to_screen (int2 window_size) {
 		glBindFramebuffer(GL_READ_FRAMEBUFFER, fbo);
+		glBindFramebuffer(GL_DRAW_FRAMEBUFFER, fbo_resolve);
+
+		glBlitFramebuffer(0,0, renderscale.size.x,renderscale.size.y,
+		                  0,0, renderscale.size.x,renderscale.size.y,
+		                  GL_COLOR_BUFFER_BIT, GL_NEAREST);
+		
+		//
+		glBindFramebuffer(GL_READ_FRAMEBUFFER, fbo_resolve);
 		glBindFramebuffer(GL_DRAW_FRAMEBUFFER, 0);
 
-		glBlitFramebuffer(0,0, window_size.x,window_size.y,
+		glBlitFramebuffer(0,0, renderscale.size.x,renderscale.size.y,
 		                  0,0, window_size.x,window_size.y,
 		                  GL_COLOR_BUFFER_BIT, renderscale.nearest ? GL_NEAREST : GL_LINEAR);
 		
-		glBindFramebuffer(GL_READ_FRAMEBUFFER, fbo);
+		//
+		glBindFramebuffer(GL_READ_FRAMEBUFFER, 0);
 		glBindFramebuffer(GL_FRAMEBUFFER, 0);
 	}
 };

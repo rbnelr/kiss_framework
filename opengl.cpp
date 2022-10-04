@@ -29,7 +29,9 @@ void APIENTRY debug_callback (GLenum source, GLenum type, GLuint id, GLenum seve
 		// when intentionally uploading uint16_t to GL_R8UI
 		case 131153:
 			return;
-
+		case 1281:
+		case 5145:
+			return; // shader compile error?
 		default:
 			break;
 	}
