@@ -119,10 +119,17 @@ GLuint Shader::compile_shader (const char* name, const char* vertex, const char*
 
 bool preprocess_include_file (char const* shader_name, char const* filename, std::string* result, std::vector<std::string>* src_files) {
 	using namespace parse;
-	const auto inc_len = strlen("include");
 
-	if (!contains(*src_files, std::string_view(filename)))
+	int fileidx = indexof(*src_files, std::string_view(filename));
+	if (fileidx < 0) {
+		fileidx = (int)src_files->size();
 		src_files->push_back(filename);
+	}
+	
+	if (!result->empty()) { // not allowed to come before #version macro
+		//prints(result, "#line 1 \"%s\"\n", filename); // only works on nvidia
+		prints(result, "#line 1 %d\n", fileidx);
+	}
 
 	std::string source;
 	if (!kiss::load_text_file(filename, &source)) {
@@ -148,8 +155,8 @@ bool preprocess_include_file (char const* shader_name, char const* filename, std
 			c++; // skip '#'
 			whitespace(c);
 
-			if (strncmp(c, "include", inc_len) == 0) {
-				c += inc_len;
+			std::string_view ident;
+			if (identifier(c, &ident) && ident == "include") {
 
 				whitespace(c);
 
@@ -160,13 +167,12 @@ bool preprocess_include_file (char const* shader_name, char const* filename, std
 				} else {
 
 					std::string inc_filepath = path + inc_filename;
-
-					prints(result, "#line 1 \"%s\"\n", inc_filepath.c_str());
-
+					
 					if (!preprocess_include_file(shader_name, inc_filepath.c_str(), result, src_files)) // include file text instead of ' #include "filename" '
 						success = false;
 
-					prints(result, "#line %d \"%s\"\n", line_no, filename);
+					//prints(result, "#line %d \"%s\"\n", line_no, filename);
+					prints(result, "#line %d %d\n", line_no, fileidx);
 
 					line = c; // set line to after ' #include "filename" '
 				}

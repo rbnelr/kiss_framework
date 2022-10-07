@@ -84,7 +84,7 @@ namespace kiss {
 
 	// returns lowest index where (vec[i] == r) returns true or -1 if none are found
 	template <typename VT, typename T, typename Alloc>
-	inline int indexof (std::vector<VT, Alloc>& vec, T& r) {
+	inline int indexof (std::vector<VT, Alloc>& vec, T const& r) {
 		for (int i=0; i<(int)vec.size(); ++i)
 			if (vec[i] == r)
 				return i;
