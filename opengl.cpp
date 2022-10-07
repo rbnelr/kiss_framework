@@ -115,6 +115,8 @@ GLuint Shader::compile_shader (const char* name, const char* vertex, const char*
 }
 */
 
+
+
 bool preprocess_include_file (char const* shader_name, char const* filename, std::string* result, std::vector<std::string>* src_files) {
 	using namespace parse;
 	const auto inc_len = strlen("include");
@@ -310,41 +312,62 @@ bool check_program (GLuint prog, const char* name) {
 }
 
 uniform_set get_uniforms (GLuint prog) {
-		uniform_set uniforms;
+	uniform_set uniforms;
 
-		GLint uniform_count = 0;
-		glGetProgramiv(prog, GL_ACTIVE_UNIFORMS, &uniform_count);
+	GLint uniform_count = 0;
+	glGetProgramiv(prog, GL_ACTIVE_UNIFORMS, &uniform_count);
 
-		if (uniform_count != 0) {
-			GLint max_name_len = 0;
-			glGetProgramiv(prog, GL_ACTIVE_UNIFORM_MAX_LENGTH, &max_name_len);
+	if (uniform_count != 0) {
+		GLint max_name_len = 0;
+		glGetProgramiv(prog, GL_ACTIVE_UNIFORM_MAX_LENGTH, &max_name_len);
 
-			auto uniform_name = std::make_unique<char[]>(max_name_len);
+		auto uniform_name = std::make_unique<char[]>(max_name_len);
 
-			for (GLint i=0; i<uniform_count; ++i) {
-				GLsizei length = 0;
-				GLsizei count = 0;
-				GLenum 	type = GL_NONE;
-				glGetActiveUniform(prog, i, max_name_len, &length, &count, &type, uniform_name.get());
+		for (GLint i=0; i<uniform_count; ++i) {
+			GLsizei length = 0;
+			GLsizei count = 0;
+			GLenum 	type = GL_NONE;
+			glGetActiveUniform(prog, i, max_name_len, &length, &count, &type, uniform_name.get());
 
-				ShaderUniform u;
-				u.location = glGetUniformLocation(prog, uniform_name.get());
-				u.name = std::string(uniform_name.get(), length);
-				u.type = type;
+			ShaderUniform u;
+			u.location = glGetUniformLocation(prog, uniform_name.get());
+			u.name = std::string(uniform_name.get(), length);
+			u.type = type;
 
-				uniforms.emplace_back(std::move(u));
-			}
+			uniforms.emplace_back(std::move(u));
 		}
-
-		return uniforms;
 	}
 
+	return uniforms;
+}
+
+bool parse_pragmas (const char* source) {
+	const char* c = source;
+	while (*c != '\0') {
+		c = strstr(c, "#pragma");
+
+		if (!c)
+			break;
+		c += strlen("#pragma");
+
+		parse::whitespace(c);
+
+		std::string_view ident;
+		if (parse::identifier(c, &ident)) {
+			if (ident == "VISUALIZE_NORMALS")
+				return true;
+			// unkown pragma?
+		}
+	}
+
+	return false;
+}
+
 ////
-bool compile_shader (const char* name, const char* dbgname,
-		std::vector<ShaderStage> const& stages, std::vector<MacroDefinition> const& macros,
-		GLuint* out_prog, uniform_set* out_uniforms, std::vector<std::string>* src_files) {
-	src_files->clear();
-	out_uniforms->clear();
+bool compile_shader (Shader& shad, const char* name, const char* dbgname,
+		std::vector<ShaderStage> const& stages, std::vector<MacroDefinition> const& macros) {
+	shad.src_files.clear();
+	shad.uniforms.clear();
 
 	std::string source;
 	source.reserve(4096);
@@ -352,10 +375,12 @@ bool compile_shader (const char* name, const char* dbgname,
 	std::string filename = prints("shaders/%s.glsl", name);
 
 	// Load shader base source file
-	if (!preprocess_include_file(name, filename.c_str(), &source, src_files)) {
+	if (!preprocess_include_file(name, filename.c_str(), &source, &shad.src_files)) {
 		fprintf(stderr, "[Shaders] \"%s\": shader compilation error!\n", name);
 		return false;
 	}
+
+	shad.visualize_normals = parse_pragmas(source.c_str());
 
 	// Compile shader stages
 
@@ -390,7 +415,7 @@ bool compile_shader (const char* name, const char* dbgname,
 		
 		error = check_program(prog, name);
 		
-		*out_uniforms = get_uniforms(prog);
+		shad.uniforms = get_uniforms(prog);
 		//CommonUniforms::setup_shader_ubo(prog);
 	}
 
@@ -403,9 +428,9 @@ bool compile_shader (const char* name, const char* dbgname,
 		fprintf(stderr, "[Shaders] \"%s\": shader compilation error!\n", name);
 
 		glDeleteProgram(prog);
-		*out_prog = 0;
+		shad.prog = 0;
 	}
-	*out_prog = prog;
+	shad.prog = prog;
 	return !error;
 }
 

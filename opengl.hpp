@@ -130,9 +130,9 @@ struct MacroDefinition {
 	std::string value;
 };
 
-bool compile_shader (const char* name, const char* dbgname,
-		std::vector<ShaderStage> const& stages, std::vector<MacroDefinition> const& macros,
-		GLuint* out_prog, uniform_set* out_uniforms, std::vector<std::string>* src_files);
+struct Shader;
+bool compile_shader (Shader& shad, const char* name, const char* dbgname,
+		std::vector<ShaderStage> const& stages, std::vector<MacroDefinition> const& macros);
 
 struct Shader {
 	GLuint                          prog = 0;
@@ -145,6 +145,8 @@ struct Shader {
 	
 	uniform_set                     uniforms;
 	std::vector<std::string>        src_files;
+
+	bool visualize_normals = false;
 	
 	~Shader () {
 		if (prog) glDeleteProgram(prog);
@@ -156,8 +158,7 @@ struct Shader {
 		uniform_set new_uniforms;
 		std::vector<std::string> new_src_files;
 
-		bool success = compile_shader(name.c_str(), dbgname.c_str(), stages, macros,
-			&new_prog, &new_uniforms, &new_src_files);
+		bool success = compile_shader(*this, name.c_str(), dbgname.c_str(), stages, macros);
 		
 		if (success) {
 			// success, delete old shader
@@ -244,8 +245,7 @@ struct Shaders {
 		s->stages = stages;
 		s->macros = std::move(macros);
 
-		bool success = compile_shader(s->name.c_str(), s->dbgname.c_str(), s->stages, s->macros,
-				&s->prog, &s->uniforms, &s->src_files);
+		bool success = compile_shader(*s, s->name.c_str(), s->dbgname.c_str(), s->stages, s->macros);
 		
 		auto* ptr = s.get();
 		// remember shader regardless of compilation success to allow for shaders with errors
