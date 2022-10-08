@@ -205,7 +205,8 @@ std::string preprocessor_insert_macro_defs (std::string const& source, char cons
 
 	result += std::string_view(source.c_str(), c - source.c_str()); // #version line
 	result += macros;
-	prints(&result, "#line 1 \"%s\"\n", filename); // reset source line number
+	//prints(&result, "#line 1 \"%s\"\n", filename); // reset source line number
+	prints(&result, "#line 1 %d\n", 0); // reset source line number
 	result += std::string_view(c, source.size() - (c - source.c_str()));
 	return result;
 }

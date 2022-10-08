@@ -53,6 +53,14 @@ void imgui_end_frame (Window& window) {
 }
 
 //// GLFW & Opengl setup
+
+// https://stackoverflow.com/questions/6036292/select-a-graphic-device-in-windows-opengl?noredirect=1&lq=1
+// needed to make laptop use dedicated gpu for this app
+extern "C" {
+	_declspec(dllexport) DWORD NvOptimusEnablement = 1;
+	_declspec(dllexport) int AmdPowerXpressRequestHighPerformance = 1;
+}
+
 bool window_setup (Window& window, char const* window_title) {
 	if (!glfwInit()) {
 		printf("glfwInit error!");

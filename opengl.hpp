@@ -762,14 +762,14 @@ struct StateManager {
 			assert((reverse_depth ? map_depth_func_reverse(state.depth_func) : map_depth_func(state.depth_func)) == depth_func);
 			GLint depth_write;		glGetIntegerv(GL_DEPTH_WRITEMASK, &depth_write);
 			assert(state.depth_write == !!depth_write);
-
+		
 			assert(state.scissor_test == !!glIsEnabled(GL_SCISSOR_TEST));
-
+		
 			bool cull_face = !!glIsEnabled(GL_CULL_FACE);
 			assert(state.cull_face == cull_face);
 			GLint front_face;		glGetIntegerv(GL_CULL_FACE_MODE, &front_face);
 			assert((state.front_face == CULL_FRONT ? GL_FRONT : GL_BACK) == front_face);
-
+		
 			assert(state.blend_enable == !!glIsEnabled(GL_BLEND));
 			GLint blend_eq;		glGetIntegerv(GL_BLEND_EQUATION, &blend_eq);
 			assert(state.blend_func.equation == blend_eq);
@@ -780,9 +780,10 @@ struct StateManager {
 			glGetIntegerv(GL_BLEND_DST_ALPHA, &blend_ad);
 			assert(state.blend_func.sfactor == blend_rgbs && state.blend_func.sfactor == blend_as);
 			assert(state.blend_func.dfactor == blend_rgbd && state.blend_func.dfactor == blend_ad);
-
-			GLint poly_mode;		glGetIntegerv(GL_POLYGON_MODE, &poly_mode);
-			assert((state.poly_mode == POLY_FILL ? GL_FILL : GL_LINE) == poly_mode);
+		
+			// WARNING: glGetIntegerv(GL_POLYGON_MODE) returns two values  [0]: front facing [1]: back facing
+			GLint poly_mode[2] = {};		glGetIntegerv(GL_POLYGON_MODE, poly_mode);
+			assert((state.poly_mode == POLY_FILL ? GL_FILL : GL_LINE) == poly_mode[0]); //  && poly_mode[0] == poly_mode[1] works on AMD, does not on NV, does NV even return 2 values like AMD? why is opengl so broken?
 		}
 	#endif
 
