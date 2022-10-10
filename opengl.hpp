@@ -154,23 +154,23 @@ struct Shader {
 	}
 	
 	inline bool recompile () {
-		GLuint new_prog = 0;
-		uniform_set new_uniforms;
-		std::vector<std::string> new_src_files;
+		Shader tmp;
 
-		bool success = compile_shader(*this, name.c_str(), dbgname.c_str(), stages, macros);
+		bool success = compile_shader(tmp, name.c_str(), dbgname.c_str(), stages, macros);
 		
 		if (success) {
 			// success, delete old shader
 			if (prog) glDeleteProgram(prog);
 			// replace with new shader
-			prog = new_prog;
-			uniforms = new_uniforms;
-			src_files = new_src_files;
+			prog = tmp.prog;
+			tmp.prog = 0;
+
+			uniforms = std::move(tmp.uniforms);
+			src_files = std::move(tmp.src_files);
 			return true;
 		} else {
 			// fail, keep old shader
-			if (new_prog) glDeleteProgram(new_prog);
+			if (tmp.prog) glDeleteProgram(tmp.prog);
 			return false;
 		}
 
