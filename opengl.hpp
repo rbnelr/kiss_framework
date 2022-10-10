@@ -973,7 +973,7 @@ struct LineRenderer {
 			PipelineState s;
 			s.depth_test = false;
 			s.blend_enable = true;
-			state.set(s);
+			state.set_no_override(s);
 
 			glBindVertexArray(vbo.vao);
 			glDrawArrays(GL_LINES, 0, (GLsizei)lines.size());
