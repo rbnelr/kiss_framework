@@ -1157,6 +1157,44 @@ inline int calc_mipmaps (int w, int h) {
 	return count;
 }
 
+template <typename T>
+inline void _upload_texture2D (GLenum targ, Image<T>& img);
+
+template<> inline void _upload_texture2D<srgb8> (GLenum targ, Image<srgb8>& img) {
+	glTexImage2D(GL_TEXTURE_2D, 0, GL_SRGB8, img.size.x, img.size.y, 0, GL_RGB, GL_UNSIGNED_BYTE, img.pixels);
+}
+template<> inline void _upload_texture2D<srgba8> (GLenum targ, Image<srgba8>& img) {
+	glTexImage2D(GL_TEXTURE_2D, 0, GL_SRGB8_ALPHA8, img.size.x, img.size.y, 0, GL_RGBA, GL_UNSIGNED_BYTE, img.pixels);
+}
+template<> inline void _upload_texture2D<float> (GLenum targ, Image<float>& img) {
+	glTexImage2D(GL_TEXTURE_2D, 0, GL_R32F, img.size.x, img.size.y, 0, GL_RED, GL_FLOAT, img.pixels);
+}
+
+template <typename T>
+inline bool upload_texture2D (GLuint tex, const char* filepath, bool mips=true) {
+	Image<T> img;
+	if (!Image<T>::load_from_file(filepath, &img)) {
+		return false;
+	}
+
+	glBindTexture(GL_TEXTURE_2D, tex);
+	_upload_texture2D(GL_TEXTURE_2D, img);
+
+	if (mips) {
+		glGenerateMipmap(GL_TEXTURE_2D);
+	} else {
+		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_BASE_LEVEL, 0);
+		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAX_LEVEL, 0);
+	}
+
+	glBindTexture(GL_TEXTURE_2D, 0);
+	return true;
+}
+template <typename T>
+inline bool upload_texture2D (Texture2D& tex, const char* filepath, bool mips=true) {
+	return upload_texture2D<T>((GLuint)tex, filepath, mips);
+}
+
 struct RenderScale {
 	SERIALIZE(RenderScale, renderscale, MSAA, nearest)
 
