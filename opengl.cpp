@@ -348,28 +348,6 @@ uniform_set get_uniforms (GLuint prog) {
 	return uniforms;
 }
 
-bool parse_pragmas (const char* source) {
-	const char* c = source;
-	while (*c != '\0') {
-		c = strstr(c, "#pragma");
-
-		if (!c)
-			break;
-		c += strlen("#pragma");
-
-		parse::whitespace(c);
-
-		std::string_view ident;
-		if (parse::identifier(c, &ident)) {
-			if (ident == "VISUALIZE_NORMALS")
-				return true;
-			// unkown pragma?
-		}
-	}
-
-	return false;
-}
-
 ////
 bool compile_shader (Shader& shad, const char* name, const char* dbgname,
 		std::vector<ShaderStage> const& stages, std::vector<MacroDefinition> const& macros) {
@@ -386,8 +364,6 @@ bool compile_shader (Shader& shad, const char* name, const char* dbgname,
 		fprintf(stderr, "[Shaders] \"%s\": shader compilation error!\n", name);
 		return false;
 	}
-
-	shad.visualize_normals = parse_pragmas(source.c_str());
 
 	// Compile shader stages
 

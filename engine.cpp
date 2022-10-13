@@ -33,6 +33,8 @@ void imgui_shutdown (Window& window) {
 	ImGui::DestroyContext();
 }
 void imgui_begin_frame (Window& window) {
+	ZoneScoped;
+
 	ImGui_ImplOpenGL3_NewFrame();
 	ImGui_ImplGlfw_NewFrame(window.imgui_enabled && window.input.cursor_enabled);
 
@@ -46,6 +48,8 @@ void imgui_begin_frame (Window& window) {
 	ImGui::NewFrame();
 }
 void imgui_end_frame (Window& window) {
+	ZoneScoped;
+
 	ImGui::Render();
 
 	if (window.imgui_enabled)
@@ -62,6 +66,8 @@ extern "C" {
 }
 
 bool window_setup (Window& window, char const* window_title) {
+	ZoneScoped;
+
 	if (!glfwInit()) {
 		printf("glfwInit error!");
 		return false;
@@ -129,6 +135,8 @@ bool window_setup (Window& window, char const* window_title) {
 	//}
 
 	glEnable(GL_TEXTURE_CUBE_MAP_SEAMLESS); // core since 3.2
+	
+	glGetFloatv(GL_MAX_TEXTURE_MAX_ANISOTROPY, &ogl::max_aniso);
 
 	{
 		auto* vend = glGetString(GL_VENDOR);
@@ -153,6 +161,7 @@ void window_shutdown (Window& window) {
 }
 
 void common_imgui (Window& window, IApp* app) {
+	ZoneScoped;
 
 	if (ImGui::Begin("Misc")) {
 		{
@@ -519,6 +528,8 @@ void window_frame (Window& window) {
 	window.input.clear_frame_input();
 	window.input.get_time();
 	window.input.frame_counter++;
+
+	TracyGpuCollect;
 }
 
 void Window::draw_imgui () {
