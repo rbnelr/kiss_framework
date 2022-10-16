@@ -10,6 +10,12 @@
 #include "kisslib/stb_image_write.hpp"
 
 namespace ogl {
+	
+// D---C
+// | / |
+// A---B
+#define QUAD_INDICES(a,b,c,d) b,c,a, a,c,d
+
 
 //// Use reverse depth to fix depth precision issues if possible
 // requires float depth buffer and glClipControl
@@ -459,6 +465,21 @@ public:
 	operator GLuint () const { return fbo; }
 };
 
+typedef struct {
+	uint32_t  count;
+	uint32_t  instanceCount;
+	uint32_t  first;
+	uint32_t  baseInstance;
+} glDrawArraysIndirectCommand;
+
+typedef struct {
+	uint32_t count;
+	uint32_t primCount;
+	uint32_t firstIndex;
+	uint32_t baseVertex;
+	uint32_t baseInstance;
+} glDrawElementsIndirectCommand;
+
 inline void upload_buffer (GLenum target, GLuint buf, size_t size, void const* data, GLenum usage = GL_STATIC_DRAW) {
 	glBindBuffer(target, buf);
 
@@ -561,36 +582,39 @@ struct VertexBufferInstancedI {
 	}
 };
 
+// put into Vertex struct
+#define ATTRIBUTES static void attrib (int idx, size_t base_offs=0)
+
 #define ATTRIB(IDX, TYPE, COMPONENTS, STRUCT, NAME) do { \
 	auto _idx = IDX; \
 	glEnableVertexAttribArray(_idx); \
-	glVertexAttribPointer(_idx, COMPONENTS, TYPE, false, sizeof(STRUCT), (void*)offsetof(STRUCT, NAME)); \
+	glVertexAttribPointer(_idx, COMPONENTS, TYPE, false, sizeof(STRUCT), (void*)(offsetof(STRUCT, NAME) + base_offs)); \
 } while (false)
 #define ATTRIBI(IDX, TYPE, COMPONENTS, STRUCT, NAME) do { \
 	auto _idx = IDX; \
 	glEnableVertexAttribArray(_idx); \
-	glVertexAttribPointerI(_idx, COMPONENTS, TYPE, false, sizeof(STRUCT), (void*)offsetof(STRUCT, NAME)); \
+	glVertexAttribPointerI(_idx, COMPONENTS, TYPE, false, sizeof(STRUCT), (void*)(offsetof(STRUCT, NAME) + base_offs)); \
 } while (false)
 
 #define ATTRIB(IDX, TYPE, COMPONENTS, STRUCT, NAME) do { \
 	auto _idx = IDX; \
 	glEnableVertexAttribArray(_idx); \
-	glVertexAttribPointer(_idx, COMPONENTS, TYPE, false, sizeof(STRUCT), (void*)offsetof(STRUCT, NAME)); \
+	glVertexAttribPointer(_idx, COMPONENTS, TYPE, false, sizeof(STRUCT), (void*)(offsetof(STRUCT, NAME) + base_offs)); \
 } while (false)
 #define ATTRIBI(IDX, TYPE, COMPONENTS, STRUCT, NAME) do { \
 	auto _idx = IDX; \
 	glEnableVertexAttribArray(_idx); \
-	glVertexAttribPointerI(_idx, COMPONENTS, TYPE, false, sizeof(STRUCT), (void*)offsetof(STRUCT, NAME)); \
+	glVertexAttribPointerI(_idx, COMPONENTS, TYPE, false, sizeof(STRUCT), (void*)(offsetof(STRUCT, NAME) + base_offs)); \
 } while (false)
 
-typedef void (*vertex_attrib_func)(int);
+typedef void (*vertex_attrib_func)(int, size_t);
 /* Use like:
 	struct Vertex {
 		float3 pos;
 		float2 uv;
 		float4 col;
 
-		static void attrib (int idx) {
+		ATTRIBUTES {
 			ATTRIB(GL_FLOAT, 3, Vertex, pos);
 			ATTRIB(GL_FLOAT, 2, Vertex, uv);
 			ATTRIB(GL_FLOAT, 4, Vertex, col);
@@ -598,12 +622,12 @@ typedef void (*vertex_attrib_func)(int);
 	};
 */
 
-inline void setup_vao (vertex_attrib_func vertex_attrib, GLuint vao, GLuint vbo, GLuint ebo=0) {
+inline void setup_vao (vertex_attrib_func vertex_attrib, GLuint vao, GLuint vbo, GLuint ebo=0, size_t vbo_base_offs=0) {
 	glBindVertexArray(vao);
 	if (ebo) glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, ebo);
 
 	glBindBuffer(GL_ARRAY_BUFFER, vbo);
-	vertex_attrib(0);
+	vertex_attrib(0, vbo_base_offs);
 	glBindBuffer(GL_ARRAY_BUFFER, 0); // glVertexAttribPointer remembers VAO
 
 	glBindVertexArray(0);
@@ -966,83 +990,6 @@ struct CommonUniforms {
 	}
 };
 #endif
-
-struct LineRenderer {
-
-	Shader* shad = g_shaders.compile("dbg_lines");
-
-	struct _Vertex {
-		float3 pos;
-		float4 col;
-
-		static void attrib (int idx) {
-			ATTRIB(idx++, GL_FLOAT,3, _Vertex, pos);
-			ATTRIB(idx++, GL_FLOAT,4, _Vertex, col);
-		}
-	};
-	VertexBuffer vbo = vertex_buffer<_Vertex>("LineRenderer");
-
-	void render (StateManager& state, std::vector<DebugDraw::LineVertex>& lines) {
-		if (!shad->prog) return;
-		
-		ZoneScoped;
-		OGL_TRACE("LineRenderer");
-
-		vbo.stream(lines);
-
-		if (lines.size() > 0) {
-			
-			glUseProgram(shad->prog);
-
-			PipelineState s;
-			s.depth_test = false;
-			s.blend_enable = true;
-			state.set_no_override(s);
-
-			glBindVertexArray(vbo.vao);
-			glDrawArrays(GL_LINES, 0, (GLsizei)lines.size());
-		}
-	}
-};
-struct TriRenderer {
-
-	Shader* shad = g_shaders.compile("dbg_tris");
-
-	struct _Vertex {
-		float3 pos;
-		float3 norm;
-		float4 col;
-
-		static void attrib (int idx) {
-			ATTRIB(idx++, GL_FLOAT,3, _Vertex, pos);
-			ATTRIB(idx++, GL_FLOAT,3, _Vertex, norm);
-			ATTRIB(idx++, GL_FLOAT,4, _Vertex, col);
-		}
-	};
-	VertexBuffer vbo = vertex_buffer<_Vertex>("TriRenderer");
-
-	void render (StateManager& state, std::vector<DebugDraw::TriVertex>& lines) {
-		if (!shad->prog) return;
-		
-		ZoneScoped;
-		OGL_TRACE("TriRenderer");
-		
-		vbo.stream(lines);
-
-		if (lines.size() > 0) {
-			
-			glUseProgram(shad->prog);
-
-			PipelineState s;
-			s.depth_test = false;
-			s.blend_enable = true;
-			state.set(s);
-
-			glBindVertexArray(vbo.vao);
-			glDrawArrays(GL_TRIANGLES, 0, (GLsizei)lines.size());
-		}
-	}
-};
 
 inline void _debug_vao (std::string msg="") {
 

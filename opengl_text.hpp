@@ -100,6 +100,10 @@ struct TextRenderer {
 
 	struct GlyphQuad {
 		float2 pos;
+
+		ATTRIBUTES {
+			ATTRIB(idx++, GL_FLOAT, 2, GlyphQuad, pos);
+		}
 	};
 	static constexpr GlyphQuad GLYPH_QUAD[4] = {
 		{{ 0,1 }},
@@ -121,7 +125,7 @@ struct TextRenderer {
 		glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, buf.ebo);
 
 		glBindBuffer(GL_ARRAY_BUFFER, buf.vbo);
-		ATTRIB(0, GL_FLOAT, 2, GlyphQuad, pos);
+		GlyphQuad::attrib(0);
 		glBindBuffer(GL_ARRAY_BUFFER, 0);
 
 		{

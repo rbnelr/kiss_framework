@@ -15,15 +15,11 @@ struct DebugDraw {
 	struct LineVertex {
 		float3 pos;
 		float4 col;
-
-		static void attrib (int idx);
 	};
 	struct TriVertex {
 		float3 pos;
 		float3 normal;
 		float4 col;
-
-		static void attrib (int idx);
 	};
 
 	std::vector<LineVertex> lines;
