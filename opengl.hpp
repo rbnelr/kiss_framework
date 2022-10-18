@@ -1145,6 +1145,7 @@ template <typename T>
 inline bool upload_texture2D (GLuint tex, const char* filepath, bool mips=true) {
 	Image<T> img;
 	if (!Image<T>::load_from_file(filepath, &img)) {
+		fprintf(stderr, "Error! Could not load texture \"%s\"", filepath);
 		return false;
 	}
 
