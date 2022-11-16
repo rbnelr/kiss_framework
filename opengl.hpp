@@ -16,11 +16,35 @@ namespace ogl {
 // A---B
 #define QUAD_INDICES(a,b,c,d) b,c,a, a,c,d
 
+inline void push_quad (uint16_t* out, uint16_t a, uint16_t b, uint16_t c, uint16_t d) {
+	// D---C
+	// | / |
+	// A---B
+	out[0] = b;
+	out[1] = c;
+	out[2] = a;
+	out[3] = a;
+	out[4] = c;
+	out[5] = d;
+}
+inline void push_quad2 (uint16_t* out, uint16_t a, uint16_t b, uint16_t c, uint16_t d) {
+	// D---C
+	// | \ |
+	// A---B
+	out[0] = a;
+	out[1] = b;
+	out[2] = d;
+	out[3] = d;
+	out[4] = b;
+	out[5] = c;
+}
 
+#if OGL_USE_REVERSE_DEPTH
 //// Use reverse depth to fix depth precision issues if possible
 // requires float depth buffer and glClipControl
 // https://nlguillemot.wordpress.com/2016/12/07/reversed-z-in-opengl/
 inline bool reverse_depth = false;
+#endif
 
 inline float max_aniso = 1.0f;
 
@@ -593,7 +617,7 @@ struct VertexBufferInstancedI {
 #define ATTRIBI(IDX, TYPE, COMPONENTS, STRUCT, NAME) do { \
 	auto _idx = IDX; \
 	glEnableVertexAttribArray(_idx); \
-	glVertexAttribPointerI(_idx, COMPONENTS, TYPE, false, sizeof(STRUCT), (void*)(offsetof(STRUCT, NAME) + base_offs)); \
+	glVertexAttribIPointer(_idx, COMPONENTS, TYPE, sizeof(STRUCT), (void*)(offsetof(STRUCT, NAME) + base_offs)); \
 } while (false)
 
 #define ATTRIB(IDX, TYPE, COMPONENTS, STRUCT, NAME) do { \
@@ -604,7 +628,7 @@ struct VertexBufferInstancedI {
 #define ATTRIBI(IDX, TYPE, COMPONENTS, STRUCT, NAME) do { \
 	auto _idx = IDX; \
 	glEnableVertexAttribArray(_idx); \
-	glVertexAttribPointerI(_idx, COMPONENTS, TYPE, false, sizeof(STRUCT), (void*)(offsetof(STRUCT, NAME) + base_offs)); \
+	glVertexAttribIPointer(_idx, COMPONENTS, TYPE, sizeof(STRUCT), (void*)(offsetof(STRUCT, NAME) + base_offs)); \
 } while (false)
 
 typedef void (*vertex_attrib_func)(int, size_t);
@@ -666,6 +690,7 @@ inline GLenum map_depth_func (DepthFunc func) {
 		default: return 0;
 	}
 }
+#if OGL_USE_REVERSE_DEPTH
 inline GLenum map_depth_func_reverse (DepthFunc func) {
 	switch (func) {
 		case DEPTH_INFRONT:	return GL_GEQUAL;
@@ -673,6 +698,7 @@ inline GLenum map_depth_func_reverse (DepthFunc func) {
 		default: return 0;
 	}
 }
+#endif
 
 enum CullFace {
 	CULL_BACK,
@@ -734,6 +760,8 @@ struct StateManager {
 
 		glSetEnable(GL_DEPTH_TEST, state.depth_test);
 		// 
+		
+#if OGL_USE_REVERSE_DEPTH
 		if (reverse_depth) {
 			glDepthFunc(map_depth_func_reverse(state.depth_func));
 			glClearDepth(0.0f);
@@ -748,6 +776,9 @@ struct StateManager {
 
 			glClipControl(GL_LOWER_LEFT, GL_NEGATIVE_ONE_TO_ONE);
 		}
+#else
+		glDepthFunc(map_depth_func(state.depth_func));
+#endif
 		glDepthMask(state.depth_write ? GL_TRUE : GL_FALSE);
 
 		glSetEnable(GL_SCISSOR_TEST, state.scissor_test);
@@ -773,7 +804,11 @@ struct StateManager {
 		{
 			assert(state.depth_test == !!glIsEnabled(GL_DEPTH_TEST));
 			GLint depth_func;		glGetIntegerv(GL_DEPTH_FUNC, &depth_func);
+#if OGL_USE_REVERSE_DEPTH
 			assert((reverse_depth ? map_depth_func_reverse(state.depth_func) : map_depth_func(state.depth_func)) == depth_func);
+#else
+			assert(map_depth_func(state.depth_func) == depth_func);
+#endif
 			GLint depth_write;		glGetIntegerv(GL_DEPTH_WRITEMASK, &depth_write);
 			assert(state.depth_write == !!depth_write);
 		
@@ -804,8 +839,12 @@ struct StateManager {
 		if (state.depth_test != s.depth_test)
 			glSetEnable(GL_DEPTH_TEST, s.depth_test);
 		if (state.depth_func != s.depth_func) {
+#if OGL_USE_REVERSE_DEPTH
 			if (reverse_depth) glDepthFunc(map_depth_func_reverse(state.depth_func));
 			else               glDepthFunc(map_depth_func(state.depth_func));
+#else
+			glDepthFunc(map_depth_func(state.depth_func));
+#endif
 		}
 		if (state.depth_write != s.depth_write)
 			glDepthMask(s.depth_write ? GL_TRUE : GL_FALSE);
@@ -1165,6 +1204,16 @@ inline bool upload_texture2D (GLuint tex, const char* filepath, bool mips=true) 
 template <typename T>
 inline bool upload_texture2D (Texture2D& tex, const char* filepath, bool mips=true) {
 	return upload_texture2D<T>((GLuint)tex, filepath, mips);
+}
+
+template <typename T>
+inline Texture2D texture2D (std::string_view label, const char* filepath, bool mips=true) {
+	Texture2D tex(label);
+	if (!upload_texture2D<T>((GLuint)tex, filepath, mips)) {
+		fprintf(stderr, "Texture \"%s\" not found!\n", filepath);
+		exit(1);
+	}
+	return tex;
 }
 
 struct RenderScale {

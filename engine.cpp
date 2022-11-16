@@ -58,12 +58,14 @@ void imgui_end_frame (Window& window) {
 
 //// GLFW & Opengl setup
 
+#if OGL_USE_DEDICATED_GPU
 // https://stackoverflow.com/questions/6036292/select-a-graphic-device-in-windows-opengl?noredirect=1&lq=1
 // needed to make laptop use dedicated gpu for this app
 extern "C" {
 	_declspec(dllexport) DWORD NvOptimusEnablement = 1;
 	_declspec(dllexport) int AmdPowerXpressRequestHighPerformance = 1;
 }
+#endif
 
 bool window_setup (Window& window, char const* window_title) {
 	ZoneScoped;
@@ -79,8 +81,14 @@ bool window_setup (Window& window, char const* window_title) {
 	glfwWindowHint(GLFW_OPENGL_PROFILE, GLFW_OPENGL_CORE_PROFILE);
 	//glfwWindowHint(GLFW_OPENGL_FORWARD_COMPAT, 1); // glLineWidth generated GL_INVALID_VALUE with GLFW_OPENGL_FORWARD_COMPAT
 
+	// Need Opengl 4.3 for QOL features, hopefully any modern machine supports this
 	glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, 4);
 	glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 3);
+
+#if RENDERER_WINDOW_FBO_NO_DEPTH
+	glfwWindowHint(GLFW_DEPTH_BITS, 0);
+#endif
+	glfwWindowHint(GLFW_STENCIL_BITS, 0);
 
 #if RENDERER_DEBUG_OUTPUT
 	glfwWindowHint(GLFW_OPENGL_DEBUG_CONTEXT, GLFW_TRUE);
@@ -126,8 +134,10 @@ bool window_setup (Window& window, char const* window_title) {
 		glEnable(GL_FRAMEBUFFER_SRGB);
 	else
 		fprintf(stderr, "[OpenGL] No sRGB framebuffers supported! Shading will be wrong!\n");
-	
+
+#if OGL_USE_REVERSE_DEPTH
 	ogl::reverse_depth = glfwExtensionSupported("GL_ARB_clip_control");
+#endif
 
 	//if (	!glfwExtensionSupported("GL_NV_gpu_shader5") ||
 	//	!glfwExtensionSupported("GL_NV_shader_buffer_load")) {
@@ -438,9 +448,10 @@ void glfw_mouse_button_event (GLFWwindow* wnd, int button, int action, int mods)
 	bool went_up =	 action == GLFW_RELEASE;
 
 	if ((went_down || went_up) && button >= GLFW_MOUSE_BUTTON_1 && button <= GLFW_MOUSE_BUTTON_8) {
-		I.buttons[button].is_down = went_down;
-		I.buttons[button].went_down = went_down;
-		I.buttons[button].went_up = went_up;
+		// offset mouse button, see input_buttons.hpp
+		I.buttons[button+1].is_down = went_down;
+		I.buttons[button+1].went_down = went_down;
+		I.buttons[button+1].went_up = went_up;
 	}
 }
 

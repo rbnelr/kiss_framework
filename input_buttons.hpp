@@ -2,76 +2,80 @@
 
 // Wrap glfw keys int enum to allow game to use input without needing to include glfw everywhere
 // also enums are nicer in debugger
+// NOTE: mouse buttons are offset by 1 from GLFW to make space for dummy key KEY_NULL
 enum Button : int {
-	KEY_UNKNOWN            = -1 ,
+	// Can be used in key bindings
+	// -> button[KEY_NULL] is always zero
+	KEY_NULL               = 0,
 
-	/* Mouse buttons */
-	MOUSE_BUTTON_LEFT      = 0,
-	MOUSE_BUTTON_RIGHT     = 1,
-	MOUSE_BUTTON_MIDDLE    = 2,
+	// Mouse buttons
+	// NOTE: offset by 1 from GLFW to make space for dummy key KEY_NULL
+	MOUSE_BUTTON_LEFT      = 1,
+	MOUSE_BUTTON_RIGHT     = 2,
+	MOUSE_BUTTON_MIDDLE    = 3,
 	MOUSE_BUTTON_1         = MOUSE_BUTTON_LEFT,
 	MOUSE_BUTTON_2         = MOUSE_BUTTON_RIGHT,
 	MOUSE_BUTTON_3         = MOUSE_BUTTON_MIDDLE,
-	MOUSE_BUTTON_4         = 3,
-	MOUSE_BUTTON_5         = 4,
-	MOUSE_BUTTON_6         = 5,
-	MOUSE_BUTTON_7         = 6,
-	MOUSE_BUTTON_8         = 7,
+	MOUSE_BUTTON_4         = 4,
+	MOUSE_BUTTON_5         = 5,
+	MOUSE_BUTTON_6         = 6,
+	MOUSE_BUTTON_7         = 7,
+	MOUSE_BUTTON_8         = 8,
 	MOUSE_BUTTONS_COUNT    = MOUSE_BUTTON_8+1,
 
-	/* Printable keys */
-	KEY_SPACE              = 32 ,
-	KEY_APOSTROPHE         = 39 , /* ' */
-	KEY_COMMA              = 44 , /* , */
-	KEY_MINUS              = 45 , /* - */
-	KEY_PERIOD             = 46 , /* . */
-	KEY_SLASH              = 47 , /* / */
-	KEY_0                  = 48 ,
-	KEY_1                  = 49 ,
-	KEY_2                  = 50 ,
-	KEY_3                  = 51 ,
-	KEY_4                  = 52 ,
-	KEY_5                  = 53 ,
-	KEY_6                  = 54 ,
-	KEY_7                  = 55 ,
-	KEY_8                  = 56 ,
-	KEY_9                  = 57 ,
-	KEY_SEMICOLON          = 59 , /* ; */
-	KEY_EQUAL              = 61 , /* = */
-	KEY_A                  = 65 ,
-	KEY_B                  = 66 ,
-	KEY_C                  = 67 ,
-	KEY_D                  = 68 ,
-	KEY_E                  = 69 ,
-	KEY_F                  = 70 ,
-	KEY_G                  = 71 ,
-	KEY_H                  = 72 ,
-	KEY_I                  = 73 ,
-	KEY_J                  = 74 ,
-	KEY_K                  = 75 ,
-	KEY_L                  = 76 ,
-	KEY_M                  = 77 ,
-	KEY_N                  = 78 ,
-	KEY_O                  = 79 ,
-	KEY_P                  = 80 ,
-	KEY_Q                  = 81 ,
-	KEY_R                  = 82 ,
-	KEY_S                  = 83 ,
-	KEY_T                  = 84 ,
-	KEY_U                  = 85 ,
-	KEY_V                  = 86 ,
-	KEY_W                  = 87 ,
-	KEY_X                  = 88 ,
-	KEY_Y                  = 89 ,
-	KEY_Z                  = 90 ,
-	KEY_LEFT_BRACKET       = 91 , /* [ */
-	KEY_BACKSLASH          = 92 , /* \ */
-	KEY_RIGHT_BRACKET      = 93 , /* ] */
-	KEY_GRAVE_ACCENT       = 96 , /* ` */
-	KEY_WORLD_1            = 161, /* non-US #1 */
-	KEY_WORLD_2            = 162, /* non-US #2 */
+	// Printable keys
+	KEY_SPACE              = ' ' , // 32
+	KEY_APOSTROPHE         = '\'', // 39 
+	KEY_COMMA              = ',' , // 44 
+	KEY_MINUS              = '-' , // 45 
+	KEY_PERIOD             = '.' , // 46 
+	KEY_SLASH              = '/' , // 47 
+	KEY_0                  = '0' , // 48 
+	KEY_1                  = '1' , // 49 
+	KEY_2                  = '2' , // 50 
+	KEY_3                  = '3' , // 51 
+	KEY_4                  = '4' , // 52 
+	KEY_5                  = '5' , // 53 
+	KEY_6                  = '6' , // 54 
+	KEY_7                  = '7' , // 55 
+	KEY_8                  = '8' , // 56 
+	KEY_9                  = '9' , // 57 
+	KEY_SEMICOLON          = ';' , // 59 
+	KEY_EQUAL              = '=' , // 61 
+	KEY_A                  = 'A' , // 65 
+	KEY_B                  = 'B' , // 66 
+	KEY_C                  = 'C' , // 67 
+	KEY_D                  = 'D' , // 68 
+	KEY_E                  = 'E' , // 69 
+	KEY_F                  = 'F' , // 70 
+	KEY_G                  = 'G' , // 71 
+	KEY_H                  = 'H' , // 72 
+	KEY_I                  = 'I' , // 73 
+	KEY_J                  = 'J' , // 74 
+	KEY_K                  = 'K' , // 75 
+	KEY_L                  = 'L' , // 76 
+	KEY_M                  = 'M' , // 77 
+	KEY_N                  = 'N' , // 78 
+	KEY_O                  = 'O' , // 79 
+	KEY_P                  = 'P' , // 80 
+	KEY_Q                  = 'Q' , // 81 
+	KEY_R                  = 'R' , // 82 
+	KEY_S                  = 'S' , // 83 
+	KEY_T                  = 'T' , // 84 
+	KEY_U                  = 'U' , // 85 
+	KEY_V                  = 'V' , // 86 
+	KEY_W                  = 'W' , // 87 
+	KEY_X                  = 'X' , // 88 
+	KEY_Y                  = 'Y' , // 89 
+	KEY_Z                  = 'Z' , // 90 
+	KEY_LEFT_BRACKET       = '[' , // 91 
+	KEY_BACKSLASH          = '\\', // 92 
+	KEY_RIGHT_BRACKET      = ']' , // 93 
+	KEY_GRAVE_ACCENT       = '`' , // 96 
+	KEY_WORLD_1            = 161 , /* non-US #1 */
+	KEY_WORLD_2            = 162 , /* non-US #2 */
 
-	/* Function keys */
+	// Function keys
 	KEY_ESCAPE             = 256,
 	KEY_ENTER              = 257,
 	KEY_TAB                = 258,
@@ -116,6 +120,7 @@ enum Button : int {
 	KEY_F23                = 312,
 	KEY_F24                = 313,
 	KEY_F25                = 314,
+	// Numpad keys
 	KEY_KP_0               = 320,
 	KEY_KP_1               = 321,
 	KEY_KP_2               = 322,
@@ -133,6 +138,7 @@ enum Button : int {
 	KEY_KP_ADD             = 334,
 	KEY_KP_ENTER           = 335,
 	KEY_KP_EQUAL           = 336,
+	// Modifier keys
 	KEY_LEFT_SHIFT         = 340,
 	KEY_LEFT_CONTROL       = 341,
 	KEY_LEFT_ALT           = 342,

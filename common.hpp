@@ -1,5 +1,7 @@
 #pragma once
 
+#include "../engine_config.hpp"
+
 #if   BUILD_DEBUG
 
 #define RENDERER_PROFILING					1
@@ -25,8 +27,6 @@
 //#define NDEBUG // no asserts
 
 #endif
-
-#define RENDERER_DEBUG_LABELS				1
 
 #include "stdio.h"
 #include "math.h"

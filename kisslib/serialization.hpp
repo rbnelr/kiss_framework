@@ -120,6 +120,15 @@ inline T load (char const* filename) {
     void to_json(nlohmann::ordered_json& j, const Type& t) { _JSON_EXPAND(_JSON_PASTE(_JSON_TO, __VA_ARGS__)) } \
     void from_json(const nlohmann::ordered_json& j, Type& t) { _JSON_EXPAND(_JSON_PASTE(_JSON_FROM, __VA_ARGS__)) }
 
+// Empty for convinence (I have no idea how to add 0 args to the macro mess above -_-)
+#define SERIALIZE_NONE(Type) \
+    friend void to_json(nlohmann::ordered_json& j, const Type& t) {} \
+    friend void from_json(const nlohmann::ordered_json& j, Type& t) {}
+
+#define SERIALIZE_OUT_OF_CLASS_NONE(Type)  \
+    void to_json(nlohmann::ordered_json& j, const Type& t) {} \
+    void from_json(const nlohmann::ordered_json& j, Type& t) {}
+
 namespace nlohmann {
 	template<typename T>
 	struct adl_serializer<std::unique_ptr<T>> {

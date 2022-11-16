@@ -108,13 +108,13 @@ struct Input {
 
 	// used to ignore inputs that imgui has already captured
 	void disable_keyboard () {
-		for (int i=MOUSE_BUTTONS_COUNT+1; i<BUTTONS_COUNT; ++i)
+		for (int i=KEY_SPACE; i<BUTTONS_COUNT; ++i)
 			buttons[i] = {};
 	}
 	void disable_mouse () {
 		mouse_delta = 0;
 		mouse_wheel_delta = 0;
-		for (int i=MOUSE_BUTTON_1; i<BUTTONS_COUNT; ++i)
+		for (int i=MOUSE_BUTTON_1; i<MOUSE_BUTTON_8+1; ++i)
 			buttons[i] = {};
 	}
 
