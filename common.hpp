@@ -60,6 +60,6 @@
 #include "kisslib/serialization.hpp"
 using namespace kiss;
 
-#include "Tracy.hpp"
+#include "tracy/Tracy.hpp"
 #include "dear_imgui.hpp"
 #include "window.hpp"

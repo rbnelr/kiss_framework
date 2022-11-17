@@ -231,7 +231,7 @@ struct TextRenderer {
 
 	int draw_text (std::string_view text, float font_size, float4 const& color,
 			float2 const& base_pos, float2 const& align=0, float2 const& align_padding=0) {
-		ZoneScoped
+		ZoneScoped;
 		auto ptext = prepare_text(text, font_size, color);
 		align_text(ptext, base_pos, align, align_padding);
 		return ptext.len;

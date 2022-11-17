@@ -2,7 +2,7 @@
 #include "common.hpp"
 
 #include "glad/glad.h"
-#include "TracyOpenGL.hpp"
+#include "tracy/TracyOpenGL.hpp"
 
 #include "camera.hpp"
 #include "dbgdraw.hpp"

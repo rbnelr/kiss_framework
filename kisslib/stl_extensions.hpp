@@ -3,10 +3,11 @@
 #include <string>
 #include <unordered_map>
 #include <unordered_set>
+#include <memory>
 
 // Tracy tracked stl containers
 #ifdef TRACY_ENABLE
-	#include "Tracy.hpp"
+	#include "tracy/Tracy.hpp"
 
 	#define STL_PROFILE_SCOPED(name) ZoneScopedNC(name, tracy::Color::Crimson)
 	#define STL_PROFILE_ALLOC(ptr, size) TracyAlloc(ptr, size)
@@ -75,7 +76,7 @@ namespace kiss {
 	// returns lowest index where are_equal(vec[i], r) returns true or -1 if none are found
 	// bool are_equal(VT const& l, T const& r)
 	template <typename VT, typename T, typename EQUAL, typename Alloc>
-	inline int indexof (std::vector<VT, Alloc>& vec, T& r, EQUAL are_equal) {
+	inline int indexof (std::vector<VT, Alloc> const& vec, T& r, EQUAL are_equal) {
 		for (int i=0; i<(int)vec.size(); ++i)
 			if (are_equal(vec[i], r))
 				return i;
@@ -84,7 +85,7 @@ namespace kiss {
 
 	// returns lowest index where (vec[i] == r) returns true or -1 if none are found
 	template <typename VT, typename T, typename Alloc>
-	inline int indexof (std::vector<VT, Alloc>& vec, T const& r) {
+	inline int indexof (std::vector<VT, Alloc> const& vec, T const& r) {
 		for (int i=0; i<(int)vec.size(); ++i)
 			if (vec[i] == r)
 				return i;
@@ -94,7 +95,7 @@ namespace kiss {
 	// returns true if any are_equal(vec[i], r) returns true
 	// bool are_equal(VT const& l, T const& r)
 	template <typename VT, typename T, typename EQUAL, typename Alloc>
-	inline bool contains (std::vector<VT, Alloc>& vec, T const& r, EQUAL are_equal) {
+	inline bool contains (std::vector<VT, Alloc> const& vec, T const& r, EQUAL are_equal) {
 		for (auto& i : vec)
 			if (are_equal(i, r))
 				return true;
@@ -103,7 +104,7 @@ namespace kiss {
 	
 	// returns true if any (vec[i] == r) returns true
 	template <typename VT, typename T, typename Alloc>
-	inline bool contains (std::vector<VT, Alloc>& vec, T const& r) {
+	inline bool contains (std::vector<VT, Alloc> const& vec, T const& r) {
 		for (auto& i : vec)
 			if (i == r)
 				return true;
