@@ -1,6 +1,7 @@
 #pragma once
 #include "common.hpp"
 #include "opengl.hpp"
+#include "camera.hpp"
 
 #include "kisslib/stb_rect_pack.hpp"
 #include "kisslib/stb_truetype.hpp"
@@ -193,7 +194,7 @@ struct TextRenderer {
 	// draw <text> glyphs with <color>
 	// start at <pos> and modifiy <pos> when drawing, such that multple draw_text can be chained (init <pos> to 0)
 	// '\n' or '\r\n' character sequences in the text will reset <pos.x> to 0 and increment <pos.y> to the next line
-	// <x_max> keeps the maximum x value of the glyph bounds
+	// <boundsx> keeps the maximum x value of the glyph bounds
 	// to allow determining the bounding box of the entire text after the fact
 	int generate_glyphs (std::string_view text, float font_size, float4 const& color, float2* pos, float* boundsx);
 
@@ -204,6 +205,11 @@ struct TextRenderer {
 		int idx, len;
 		float2 bounds;
 	};
+	// prepare a text
+	// at a font_size in pixels with a color
+	// into a range of glyphs in glyph_instances
+	// glyphs are layouted relative to each other and the bounds are computed
+	// newlines cause multiple lines to be drawn
 	PreparedText prepare_text (std::string_view text, float font_size, float4 const& color) {
 		PreparedText t;
 		float scale = font_size / font_res;
@@ -222,6 +228,13 @@ struct TextRenderer {
 		return t;
 	}
 
+	// place prepared text with certain alignment on the screen
+	// base_pos is the root position of the text rect in screen coords (top-down pixels)
+	// padding is an amount of pixels that get added around the rect
+	// align is a [0,1] align parameter
+	//  (0,0) means the base_pos is the upper left  corner of the rect
+	//  (1,1) means the base_pos is the lower right corner of the rect
+	//  0.5 causes centering
 	void align_text (PreparedText const& prep_text, float2 const& base_pos, float2 const& align=0, float2 const& padding=0) {
 		float2 padded_bounds = prep_text.bounds + padding * 2.0f;
 		float2 offset = base_pos + padding - padded_bounds * align;
@@ -229,12 +242,31 @@ struct TextRenderer {
 		offset_glyphs(prep_text.idx, prep_text.len, offset);
 	}
 
+	// draw multiline text rect
+	// at font_size in pixels with a color
+	// at base_pos with alignment
+	// see prepare_text() and align_text() for details
 	int draw_text (std::string_view text, float font_size, float4 const& color,
 			float2 const& base_pos, float2 const& align=0, float2 const& align_padding=0) {
 		ZoneScoped;
 		auto ptext = prepare_text(text, font_size, color);
 		align_text(ptext, base_pos, align, align_padding);
 		return ptext.len;
+	}
+
+	// use to compute screen coords (top-down pixels) from world space coords with View3D
+	static float2 map_text (float3 const& pos, View3D const& view) {
+		float4 clip = view.world2clip * float4(pos, 1);
+		float4 ndc = clip / clip.w;
+
+		float4 screen = (ndc * 0.5f + 0.5f) * float4(view.viewport_size, 1,1);
+
+		screen.y = view.viewport_size.y - screen.y;
+		return (float2)screen;
+	}
+	// use to compute screen coords (top-down pixels) from world space coords with View3D
+	static float2 map_text (float2 const& pos, View3D const& view) {
+		return map_text(float3(pos, 0), view);
 	}
 
 	void render (StateManager& state);
