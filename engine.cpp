@@ -67,6 +67,8 @@ extern "C" {
 }
 #endif
 
+void create_cursors (Window& window);
+
 bool window_setup (Window& window, char const* window_title) {
 	ZoneScoped;
 
@@ -74,6 +76,8 @@ bool window_setup (Window& window, char const* window_title) {
 		printf("glfwInit error!");
 		return false;
 	}
+
+	create_cursors(window);
 	
 	glfwWindowHint(GLFW_RESIZABLE, 1);
 	glfwWindowHint(GLFW_CLIENT_API, GLFW_OPENGL_API);
@@ -369,6 +373,14 @@ void Input::set_cursor_mode (Window& window, bool enabled) {
 		glfwSetInputMode(window.window, GLFW_CURSOR, GLFW_CURSOR_NORMAL); // Cursor enabled, can interact with Imgui
 	else
 		glfwSetInputMode(window.window, GLFW_CURSOR, GLFW_CURSOR_DISABLED); // Cursor disabled & Imgui interaction disabled, all controls go to game
+}
+
+void create_cursors (Window& window) {
+	window._cursors[Window::CURSOR_NORMAL] = nullptr;
+	window._cursors[Window::CURSOR_FINGER] = glfwCreateStandardCursor(GLFW_HAND_CURSOR);
+}
+void Window::set_cursor (Window::CursorMode mode) {
+	glfwSetCursor(window, _cursors[mode]);
 }
 
 ////

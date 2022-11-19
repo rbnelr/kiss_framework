@@ -19,6 +19,7 @@ struct Rect {
 };
 
 struct GLFWwindow;
+struct GLFWcursor;
 
 struct Window {
 	SERIALIZE(Window, input)
@@ -51,4 +52,14 @@ struct Window {
 
 	bool screenshot_hud = false;
 	bool trigger_screenshot = false;
+
+	enum CursorMode {
+		CURSOR_NORMAL=0,
+		CURSOR_FINGER,
+
+		_CURSORS_COUNT,
+	};
+	GLFWcursor* _cursors[Window::_CURSORS_COUNT] = {};
+
+	void set_cursor (CursorMode mode);
 };
