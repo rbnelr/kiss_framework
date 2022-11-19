@@ -380,7 +380,11 @@ void create_cursors (Window& window) {
 	window._cursors[Window::CURSOR_FINGER] = glfwCreateStandardCursor(GLFW_HAND_CURSOR);
 }
 void Window::set_cursor (Window::CursorMode mode) {
-	glfwSetCursor(window, _cursors[mode]);
+	// Don't set cursor when imgui already sets it (imgui seems to set it every frame like expected)
+	// -> we should to set it every frame as well
+	if (!ImGui::GetIO().WantCaptureMouse) {
+		glfwSetCursor(window, _cursors[mode]);
+	}
 }
 
 ////
