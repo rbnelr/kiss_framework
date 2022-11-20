@@ -129,6 +129,14 @@ inline T load (char const* filename) {
     void to_json(nlohmann::ordered_json& j, const Type& t) {} \
     void from_json(const nlohmann::ordered_json& j, Type& t) {}
 
+// use for classes that should be reset to their default values before serialization
+// class needs a default ctor and to be assignable
+// use this where possible and where class init is not expensive (or if deserialization is expensive as well)
+//  to avoid bugs when loading manually during run
+#define SERIALIZE_RESET_ON_LOAD(Type, ...) \
+    friend void to_json(nlohmann::ordered_json& j, const Type& t) { _JSON_EXPAND(_JSON_PASTE(_JSON_TO, __VA_ARGS__)) } \
+    friend void from_json(const nlohmann::ordered_json& j, Type& t) { t = Type(); _JSON_EXPAND(_JSON_PASTE(_JSON_FROM, __VA_ARGS__)) }
+
 namespace nlohmann {
 	template<typename T>
 	struct adl_serializer<std::unique_ptr<T>> {

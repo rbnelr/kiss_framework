@@ -620,14 +620,16 @@ struct VertexBufferInstancedI {
 	glVertexAttribIPointer(_idx, COMPONENTS, TYPE, sizeof(STRUCT), (void*)(offsetof(STRUCT, NAME) + base_offs)); \
 } while (false)
 
-#define ATTRIB(IDX, TYPE, COMPONENTS, STRUCT, NAME) do { \
+#define ATTRIB_INSTANCED(IDX, TYPE, COMPONENTS, STRUCT, NAME) do { \
 	auto _idx = IDX; \
 	glEnableVertexAttribArray(_idx); \
+	glVertexAttribDivisor(_idx, 1); \
 	glVertexAttribPointer(_idx, COMPONENTS, TYPE, false, sizeof(STRUCT), (void*)(offsetof(STRUCT, NAME) + base_offs)); \
 } while (false)
-#define ATTRIBI(IDX, TYPE, COMPONENTS, STRUCT, NAME) do { \
+#define ATTRIBI_INSTANCED(IDX, TYPE, COMPONENTS, STRUCT, NAME) do { \
 	auto _idx = IDX; \
 	glEnableVertexAttribArray(_idx); \
+	glVertexAttribDivisor(_idx, 1); \
 	glVertexAttribIPointer(_idx, COMPONENTS, TYPE, sizeof(STRUCT), (void*)(offsetof(STRUCT, NAME) + base_offs)); \
 } while (false)
 
