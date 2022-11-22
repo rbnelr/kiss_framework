@@ -23,6 +23,8 @@
 #include "kissmath/output/float2x2.hpp"
 #include "kissmath/output/float3x3.hpp"
 #include "kissmath/output/float4x4.hpp"
+
+#include "kissmath/output/float2x3.hpp"
 #include "kissmath/output/float3x4.hpp"
 
 #include "kissmath/output/transform2d.hpp"

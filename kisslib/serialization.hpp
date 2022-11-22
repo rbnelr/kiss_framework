@@ -12,19 +12,20 @@ using json = nlohmann::ordered_json;
 #endif
 
 inline bool save_json (char const* filename, json const& json) {
-	//ZoneScoped;
-
 	std::string json_str;
 	try {
+		ZoneScopedN("json::dump()");
 		json_str = json.dump(1, '\t');
 	} catch (std::exception& ex) {
 		SERIALIZE_LOG(ERROR, "Error when serializing something: %s", ex.what());
 		return true;
 	}
-
-	if (!kiss::save_text_file(filename, json_str)) {
-		SERIALIZE_LOG(ERROR, "Error when serializing something: Can't save file \"%s\"", filename);
-		return false;
+	{
+		ZoneScopedN("kiss::save_text_file()");
+		if (!kiss::save_text_file(filename, json_str)) {
+			SERIALIZE_LOG(ERROR, "Error when serializing something: Can't save file \"%s\"", filename);
+			return false;
+		}
 	}
 	return true;
 }
@@ -37,14 +38,17 @@ inline bool save (char const* filename, T const& obj) {
 }
 
 inline bool load_json (char const* filename, json* j) {
-	//ZoneScoped;
 
 	std::string str;
-	if (!kiss::load_text_file(filename, &str)) {
-		SERIALIZE_LOG(WARNING, "[load_json] Can't load file \"%s\", using defaults.", filename);
-		return false;
+	{
+		ZoneScopedN("kiss::load_text_file()");
+		if (!kiss::load_text_file(filename, &str)) {
+			SERIALIZE_LOG(WARNING, "[load_json] Can't load file \"%s\", using defaults.", filename);
+			return false;
+		}
 	}
 	try {
+		ZoneScopedN("json::parse()");
 		*j = json::parse(str, nullptr, true, true); // last arg: ignore_comments
 	} catch (std::exception& ex) {
 		SERIALIZE_LOG(ERROR, "[load_json] Error in json::parse: %s", ex.what());
