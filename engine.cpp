@@ -197,6 +197,8 @@ void common_imgui (Window& window, IApp* app) {
 		}
 
 		ImGui::SameLine();
+		ImGui::Checkbox("ImGui Demo", &window.imgui_show_demo_window);
+
 		if (ImGui::Button("exit"))
 			window.close();
 
@@ -204,7 +206,6 @@ void common_imgui (Window& window, IApp* app) {
 		//ImGui::Checkbox("Logger", &g_logger.shown);
 
 		ImGui::SameLine();
-		ImGui::Checkbox("ImGui Demo", &window.imgui_show_demo_window);
 	
 		if (window.imgui_show_demo_window)
 			ImGui::ShowDemoWindow(&window.imgui_show_demo_window);
