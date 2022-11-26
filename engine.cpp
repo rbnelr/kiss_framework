@@ -196,8 +196,10 @@ void common_imgui (Window& window, IApp* app) {
 			window.set_vsync(vsync);
 		}
 
+	#if IMGUI_DEMO
 		ImGui::SameLine();
 		ImGui::Checkbox("ImGui Demo", &window.imgui_show_demo_window);
+	#endif
 
 		if (ImGui::Button("exit"))
 			window.close();
@@ -207,8 +209,10 @@ void common_imgui (Window& window, IApp* app) {
 
 		ImGui::SameLine();
 	
+	#if IMGUI_DEMO
 		if (window.imgui_show_demo_window)
 			ImGui::ShowDemoWindow(&window.imgui_show_demo_window);
+	#endif
 		
 		window.trigger_screenshot = ImGui::Button("Screenshot [F8]") || window.input.buttons[KEY_F8].went_down;
 		ImGui::SameLine();

@@ -64,7 +64,9 @@ struct Window {
 	void draw_imgui ();
 
 	bool imgui_enabled = true;
+#if IMGUI_DEMO
 	bool imgui_show_demo_window = false;
+#endif
 
 	bool screenshot_hud = false;
 	bool trigger_screenshot = false;
