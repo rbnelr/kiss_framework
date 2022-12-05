@@ -116,26 +116,28 @@ inline T load (char const* filename) {
 #define _JSON_TO(v1) j[#v1] = t.v1;
 #define _JSON_FROM(v1) if (j.contains(#v1)) j.at(#v1).get_to(t.v1); // try get value from json
 
+#define SERIALIZE_TO_JSON(Type) void to_json(nlohmann::ordered_json& j, const Type& t)
+#define SERIALIZE_FROM_JSON(Type) void from_json(const nlohmann::ordered_json& j, Type& t)
+
+#define SERIALIZE_TO_JSON_EXPAND(...)   _JSON_EXPAND(_JSON_PASTE(_JSON_TO, __VA_ARGS__))
+#define SERIALIZE_FROM_JSON_EXPAND(...) _JSON_EXPAND(_JSON_PASTE(_JSON_FROM, __VA_ARGS__))
+
 #define SERIALIZE(Type, ...)  \
-    friend void to_json(nlohmann::ordered_json& j, const Type& t) { _JSON_EXPAND(_JSON_PASTE(_JSON_TO, __VA_ARGS__)) } \
-    friend void from_json(const nlohmann::ordered_json& j, Type& t) { _JSON_EXPAND(_JSON_PASTE(_JSON_FROM, __VA_ARGS__)) }
+    friend SERIALIZE_TO_JSON(Type)   { SERIALIZE_TO_JSON_EXPAND(__VA_ARGS__)   } \
+    friend SERIALIZE_FROM_JSON(Type) { SERIALIZE_FROM_JSON_EXPAND(__VA_ARGS__) }
 
 #define SERIALIZE_OUT_OF_CLASS(Type, ...)  \
-    void to_json(nlohmann::ordered_json& j, const Type& t) { _JSON_EXPAND(_JSON_PASTE(_JSON_TO, __VA_ARGS__)) } \
-    void from_json(const nlohmann::ordered_json& j, Type& t) { _JSON_EXPAND(_JSON_PASTE(_JSON_FROM, __VA_ARGS__)) }
+    SERIALIZE_TO_JSON(Type)   { SERIALIZE_TO_JSON_EXPAND(__VA_ARGS__)   } \
+    SERIALIZE_FROM_JSON(Type) { SERIALIZE_FROM_JSON_EXPAND(__VA_ARGS__) }
 
 // Empty for convinence (I have no idea how to add 0 args to the macro mess above -_-)
 #define SERIALIZE_NONE(Type) \
-    friend void to_json(nlohmann::ordered_json& j, const Type& t) {} \
-    friend void from_json(const nlohmann::ordered_json& j, Type& t) {}
+    friend SERIALIZE_TO_JSON(Type)   {} \
+    friend SERIALIZE_FROM_JSON(Type) {}
 
 #define SERIALIZE_OUT_OF_CLASS_NONE(Type)  \
-    void to_json(nlohmann::ordered_json& j, const Type& t) {} \
-    void from_json(const nlohmann::ordered_json& j, Type& t) {}
-
-#define SERIALIZE_POST_LOAD(Type, ...)  \
-    friend void to_json(nlohmann::ordered_json& j, const Type& t) { _JSON_EXPAND(_JSON_PASTE(_JSON_TO, __VA_ARGS__)) } \
-    friend void from_json(const nlohmann::ordered_json& j, Type& t) { _JSON_EXPAND(_JSON_PASTE(_JSON_FROM, __VA_ARGS__)) post_load(t); }
+    friend SERIALIZE_TO_JSON(Type)   {} \
+    friend SERIALIZE_FROM_JSON(Type) {}
 
 
 namespace nlohmann {

@@ -67,7 +67,7 @@ public:
 	}
 
 	Image () {}
-	Image (int2 size): pixels{ (T*)malloc(size.x * size.y * sizeof(T)) }, size{size} {}
+	Image (int2 size): pixels{ (T*)malloc((size_t)size.x * size.y * sizeof(T)) }, size{size} {}
 
 	// Loads an image file from disk
 	Image (const char* filepath) {
