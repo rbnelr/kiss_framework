@@ -8,6 +8,8 @@
 #include "opengl.hpp"
 #include "GLFW/glfw3.h"
 
+#include "../game.hpp" // for imgui_style()
+
 inline int _vsync_on_interval = 1;
 void Window::set_vsync (bool vsync) {
 	this->vsync = vsync;
@@ -23,6 +25,8 @@ void imgui_setup (Window& window) {
 	io.ConfigFlags |= ImGuiConfigFlags_DockingEnable;
 	//io.ConfigFlags |= ImGuiConfigFlags_NavEnableKeyboard;     // Enable Keyboard Controls
 	//io.ConfigFlags |= ImGuiConfigFlags_NavEnableGamepad;      // Enable Gamepad Controls
+
+	imgui_style();
 
 	ImGui_ImplGlfw_InitForOpenGL(window.window, true);
 	ImGui_ImplOpenGL3_Init();
@@ -174,10 +178,14 @@ void window_shutdown (Window& window) {
 	glfwTerminate();
 }
 
-void common_imgui (Window& window, IApp* app) {
-	ZoneScoped;
+void do_imgui (Window& window, IApp* app) {
+	ZoneScopedN("imgui");
+	
+	// TODO: Docked window has wrong alpha? ie. too little alpha
+	// related?: https://github.com/ocornut/imgui/issues/5634
+	ImGui::DockSpaceOverViewport(nullptr, ImGuiDockNodeFlags_PassthruCentralNode);
 
-	if (ImGui::Begin("Misc")) {
+	if (ImGui::Begin("LogicSim")) {
 		{
 			bool fullscreen = window.fullscreen;
 			bool borderless_fullscreen = window.borderless_fullscreen;
@@ -206,14 +214,9 @@ void common_imgui (Window& window, IApp* app) {
 
 		//ImGui::SameLine();
 		//ImGui::Checkbox("Logger", &g_logger.shown);
-
+		
 		ImGui::SameLine();
 	
-	#if IMGUI_DEMO
-		if (window.imgui_show_demo_window)
-			ImGui::ShowDemoWindow(&window.imgui_show_demo_window);
-	#endif
-		
 		window.trigger_screenshot = ImGui::Button("Screenshot [F8]") || window.input.buttons[KEY_F8].went_down;
 		ImGui::SameLine();
 		ImGui::Checkbox("With HUD", &window.screenshot_hud);
@@ -226,20 +229,32 @@ void common_imgui (Window& window, IApp* app) {
 		if (ImGui::Button("Save [']") || window.input.buttons[KEY_APOSTROPHE].went_down)
 			app->json_save();
 
+		ImGui::Separator();
+		// Always show control "header" at top even when scrolling down
+		if (ImGui::BeginChild("_BodyRegion")) {
 
-		ImGui::Spacing();
+			if (imgui_Header("Performance", true)) {
+				window.fps_display.push_timing(window.input.real_dt);
+				window.fps_display.imgui_display("framerate", window.input.dt, true);
 
-		if (imgui_Header("Performance", true)) {
-			window.fps_display.push_timing(window.input.real_dt);
-			window.fps_display.imgui_display("framerate", window.input.dt, true);
+				//ImGui::Text("Chunks drawn %4d / %4d", world->chunks.chunks.count() - world->chunks.count_culled, world->chunks.chunks.count());
+				ImGui::PopID();
+			}
 
-			//ImGui::Text("Chunks drawn %4d / %4d", world->chunks.chunks.count() - world->chunks.count_culled, world->chunks.chunks.count());
-			ImGui::PopID();
+			window.input.imgui();
+
+			// Game imgui
+			app->imgui(window);
+
 		}
-
-		window.input.imgui();
+		ImGui::EndChild();
 	}
 	ImGui::End();
+
+#if IMGUI_DEMO
+	if (window.imgui_show_demo_window)
+		ImGui::ShowDemoWindow(&window.imgui_show_demo_window);
+#endif
 }
 
 void update_files_changed (Window& window) {
@@ -548,8 +563,8 @@ void window_frame (Window& window) {
 
 	imgui_begin_frame(window);
 
-	common_imgui(window, window._app);
-
+	
+	do_imgui(window, window._app);
 	window._app->frame(window);
 
 	{

@@ -44,6 +44,41 @@ inline bool imgui_Header (const char* label, bool default_open=false) {
 	return true;
 }
 
+enum ImGuiDelConf {
+	_IM_NOT_CLICKED = 0,
+	_IM_KEEP,
+	_IM_CONF_DELETE,
+};
+inline ImGuiDelConf imgui_delete_confirmation (const char* name, bool trigger_open) {
+	ImGuiDelConf conf = _IM_NOT_CLICKED;
+
+	if (ImGui::BeginPopup("POPUP_delete_confirmation")) {
+
+		ImGui::Text("Really delete %s?", name);
+		
+		ImGui::PushStyleColor(ImGuiCol_Button,        0xFF120CFF);
+		ImGui::PushStyleColor(ImGuiCol_ButtonHovered, 0xE24E48FF);
+		ImGui::PushStyleColor(ImGuiCol_ButtonActive,  0xB8241EFF);
+
+		if (ImGui::Button("DELETE")) {
+			conf = _IM_CONF_DELETE;
+			ImGui::CloseCurrentPopup();
+		}
+
+		ImGui::PopStyleColor(3);
+
+		ImGui::SameLine();
+		if (ImGui::Button(" keep ")) {
+			conf = _IM_KEEP;
+			ImGui::CloseCurrentPopup();
+		}
+
+		ImGui::EndPopup();
+	}
+
+	return conf;
+}
+
 enum LogLevel {
 	LOG,
 	INFO,

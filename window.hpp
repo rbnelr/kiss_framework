@@ -22,9 +22,9 @@ struct IApp {
 
 	virtual void json_load () = 0;
 	virtual void json_save () = 0;
-
+	
+	virtual void imgui (Window& window) = 0;
 	virtual void frame (Window& window) = 0;
-
 };
 int run_game (IApp* make_game(Window&), const char* window_title);
 

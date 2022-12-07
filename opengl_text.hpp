@@ -160,7 +160,7 @@ struct TextRenderer {
 	std::vector<GlyphInstance> glyph_instances;
 
 	void imgui () {
-		if (!imgui_Header("Text Renderer")) return;
+		if (!ImGui::TreeNode("Text Renderer")) return;
 
 		ImGui::InputText("font_path", &font_path);
 		bool changed = ImGui::Button("Load");
@@ -177,7 +177,7 @@ struct TextRenderer {
 		if (changed)
 			generate();
 
-		ImGui::PopID();
+		ImGui::TreePop();
 	}
 
 	bool generate ();

@@ -283,6 +283,14 @@ struct Camera2D {
 		ImGui::TreePop();
 	}
 
+	void zoom_to (float view_height) {
+		zoom_target = -log2f(view_height);
+	}
+	void zoom_to_noanim (float view_height) {
+		zoom_to(view_height);
+		zoom = zoom_target;
+	}
+
 	View3D update (Input& I, float2 const& viewport_size) {
 		// key rotation
 		float rot_dir = 0;
