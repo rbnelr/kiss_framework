@@ -7,8 +7,6 @@
 #include "camera.hpp"
 #include "dbgdraw.hpp"
 
-#include "kisslib/stb_image_write.hpp"
-
 namespace ogl {
 	
 // D---C
@@ -1430,25 +1428,7 @@ struct FramebufferTexture {
 };
 
 // take screenshot of current bound framebuffer
-inline void take_screenshot (int2 size) {
-	Image<srgb8> img (size);
-
-	glPixelStorei(GL_PACK_ALIGNMENT, 1);
-	glReadPixels(0,0, size.x, size.y, GL_RGB, GL_UNSIGNED_BYTE, img.pixels);
-
-	time_t t = time(0); // get time now
-	struct tm* now = localtime(&t);
-
-	char timestr [80];
-	strftime(timestr, 80, "%g%m%d-%H%M%S", now); // yy-mm-dd_hh-mm-ss
-
-	static int counter = 0; // counter to avoid overwriting files in edge cases
-	auto filename = prints("../screenshots/screen_%s_%d.jpg", timestr, counter++);
-	counter %= 100;
-
-	stbi_flip_vertically_on_write(true);
-	stbi_write_jpg(filename.c_str(), size.x, size.y, 3, img.pixels, 95);
-}
+void take_screenshot (int2 size);
 
 } // namespace ogl
 using ogl::g_shaders;

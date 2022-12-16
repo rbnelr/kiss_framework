@@ -2,6 +2,8 @@
 #include "kisslib/kissmath.hpp"
 #include "input_buttons.hpp"
 #include "dear_imgui.hpp"
+#include "kisslib/serialization.hpp"
+#include "kisslib/timer.hpp"
 
 struct Window;
 
@@ -95,9 +97,9 @@ struct Input {
 
 	void get_time () {
 		// Calc next frame dt based on this frame duration
-		uint64_t now = get_timestamp();
+		uint64_t now = kiss::get_timestamp();
 
-		real_dt = (float)(now - frame_begin_ts) / (float)timestamp_freq;
+		real_dt = (float)(now - frame_begin_ts) / (float)kiss::timestamp_freq;
 		
 		dt = min(real_dt * (pause_time ? 0 : time_scale), max_dt);
 

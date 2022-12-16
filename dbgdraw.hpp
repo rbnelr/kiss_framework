@@ -1,6 +1,9 @@
 #pragma once
-#include "common.hpp"
 #include "camera.hpp"
+#include <vector>
+
+#include "./kisslib/macros.hpp"
+#include "./kisslib/stl_extensions.hpp"
 
 struct DebugDraw {
 	static constexpr lrgba COLS[] = {
@@ -57,8 +60,8 @@ struct DebugDraw {
 	static void gen_simple_wire_sphere (std::vector<float3>* vertices, std::vector<uint16_t>* indices, float r, int segments) {
 		int count = 3 * segments;
 
-		auto* vert = push_back(*vertices, 3 * segments);
-		auto* ind = push_back(*indices, 3 * segments*2);
+		auto* vert = kiss::push_back(*vertices, 3 * segments);
+		auto* ind = kiss::push_back(*indices, 3 * segments*2);
 		
 		float ang_step = deg(360) / (float)segments;
 

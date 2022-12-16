@@ -3,6 +3,7 @@
 #include "nlohmann/json.hpp"
 #include "file_io.hpp"
 #include "kissmath.hpp"
+#include "tracy/Tracy.hpp"
 #include <memory>
 using json = nlohmann::ordered_json;
 

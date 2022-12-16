@@ -5,18 +5,6 @@
 
 struct Game;
 
-struct RendererBackend {
-	virtual ~RendererBackend () {}
-
-    virtual void to_json(nlohmann::ordered_json& j) const {}
-    virtual void from_json(const nlohmann::ordered_json& j) {}
-	
-	virtual void imgui (Input& I) = 0;
-
-	virtual void render (Window& window, Game& g, int2 window_size) = 0;
-	
-};
-
 struct IApp {
 	virtual ~IApp () {};
 

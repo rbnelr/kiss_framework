@@ -98,7 +98,7 @@ struct TextRenderer {
 // Opengl objects
 	Shader* shad;
 	Texture2D atlas_tex = {"TextRenderer::atlas_tex"};
-
+	
 	struct GlyphQuad {
 		float2 pos;
 

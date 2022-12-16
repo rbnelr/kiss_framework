@@ -1,14 +1,14 @@
 #include "dbgdraw.hpp"
 
 void DebugDraw::vector (float3 const& pos, float3 const& dir, lrgba const& col) {
-	auto* out = push_back(lines, 2);
+	auto* out = kiss::push_back(lines, 2);
 
 	*out++ = { pos, col };
 	*out++ = { pos + dir, col };
 }
 
 void DebugDraw::point (float3 const& pos, float3 const& size, lrgba const& col) {
-	auto* out = push_back(lines, 8);
+	auto* out = kiss::push_back(lines, 8);
 
 	*out++ = { pos + size * float3(-1,-1,-1), col };
 	*out++ = { pos + size * float3(+1,+1,+1), col };
@@ -24,7 +24,7 @@ void DebugDraw::point (float3 const& pos, float3 const& size, lrgba const& col) 
 }
 
 void DebugDraw::wire_quad (float3 const& pos, float2 size, lrgba const& col) {
-	auto* out = push_back(lines, ARRLEN(_wire_quad_indices));
+	auto* out = kiss::push_back(lines, ARRLEN(_wire_quad_indices));
 
 	for (auto& idx : _wire_quad_indices) {
 		auto& v = _wire_quad_vertices[idx];
@@ -39,7 +39,7 @@ void DebugDraw::wire_quad (float3 const& pos, float2 size, lrgba const& col) {
 	}
 }
 void DebugDraw::wire_cube (float3 const& pos, float3 const& size, lrgba const& col) {
-	auto* out = push_back(lines, ARRLEN(_wire_cube_indices));
+	auto* out = kiss::push_back(lines, ARRLEN(_wire_cube_indices));
 
 	for (auto& idx : _wire_cube_indices) {
 		auto& v = _wire_cube_vertices[idx];
@@ -60,7 +60,7 @@ void DebugDraw::wire_sphere (float3 const& pos, float r, lrgba const& col, int a
 
 	int count = (wiresz + wiresxy) * angres * 2; // every wire is <angres> lines, <wires> * 2 because horiz and vert wires
 
-	auto* out = push_back(lines, count);
+	auto* out = kiss::push_back(lines, count);
 
 	float ang_step = deg(360) / (float)angres;
 
@@ -118,7 +118,7 @@ void DebugDraw::wire_sphere (float3 const& pos, float r, lrgba const& col, int a
 void DebugDraw::wire_cone (float3 const& pos, float ang, float length, float3x3 const& rot, lrgba const& col, int circres, int wires) {
 	int count = (circres + wires) * 2;
 
-	auto* out = push_back(lines, count);
+	auto* out = kiss::push_back(lines, count);
 
 	float r = tan(ang * 0.5f);
 
@@ -156,7 +156,7 @@ void DebugDraw::wire_cone (float3 const& pos, float ang, float length, float3x3 
 }
 
 void DebugDraw::quad (float3 const& pos, float2 size, lrgba const& col) {
-	auto* out = push_back(tris, 6);
+	auto* out = kiss::push_back(tris, 6);
 	
 	*out++ = { pos + float3(size.x,      0, 0), float3(0,0,1), col };
 	*out++ = { pos + float3(size.x, size.y, 0), float3(0,0,1), col };
@@ -167,7 +167,7 @@ void DebugDraw::quad (float3 const& pos, float2 size, lrgba const& col) {
 }
 
 void DebugDraw::cylinder (float3 const& base, float radius, float height, lrgba const& col, int sides) {
-	auto* out = push_back(tris, sides * 4 * 3); // tri for bottom + top cap + 2 tris for side
+	auto* out = kiss::push_back(tris, sides * 4 * 3); // tri for bottom + top cap + 2 tris for side
 
 	float ang_step = 2*PI / (float)sides;
 
