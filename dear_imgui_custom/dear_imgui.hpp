@@ -93,6 +93,9 @@ inline GuiUnsavedConfirm imgui_unsaved_changes_confirmation () {
 
 	GuiUnsavedConfirm conf = GuiUnsavedConfirm::PENDING;
 	
+	auto size = ImGui::GetMainViewport()->Size;
+	ImGui::SetNextWindowPos(ImVec2(size.x * 0.5f, size.y * 0.5f), 0, ImVec2(0.5f, 0.5f));
+
 	if (ImGui::BeginPopup("POPUP_unsaved_confirmation")) {
 
 		ImGui::Text("You have unsaved changes.");
