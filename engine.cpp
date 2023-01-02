@@ -16,6 +16,8 @@ void Window::set_vsync (bool vsync) {
 	glfwSwapInterval(vsync ? _vsync_on_interval : 0);
 }
 
+inline IApp::ShouldClose _should_close = IApp::CLOSE_CANCEL;
+
 //// Imgui stuff
 void imgui_setup (Window& window) {
 	// Setup Dear ImGui context
@@ -251,6 +253,10 @@ void do_imgui (Window& window, IApp* app) {
 	}
 	ImGui::End();
 
+	if (_should_close == IApp::CLOSE_PENDING) {
+		_should_close = window._app->close_confirmation();
+	}
+	
 #if IMGUI_DEMO
 	if (window.imgui_show_demo_window)
 		ImGui::ShowDemoWindow(&window.imgui_show_demo_window);
@@ -382,7 +388,8 @@ bool Window::toggle_fullscreen () {
 }
 
 void Window::close () {
-	glfwSetWindowShouldClose(window, 1);
+	//glfwSetWindowShouldClose(window, 1);
+	_should_close = IApp::CLOSE_PENDING;
 }
 
 //// Input stuff
@@ -533,6 +540,8 @@ bool draw_on_size_events = false;
 
 void window_frame (Window& window);
 
+GuiConfirm should_close;
+
 // enable drawing frames when resizing the window
 void glfw_window_size_event (GLFWwindow* wnd, int width, int height) {
 	if (!draw_on_size_events) return;
@@ -563,8 +572,8 @@ void window_frame (Window& window) {
 
 	imgui_begin_frame(window);
 
-	
 	do_imgui(window, window._app);
+	
 	window._app->frame(window);
 
 	{
@@ -598,7 +607,7 @@ int run_game (IApp* make_game(Window&), const char* window_title) {
 	
 	glfw_input_pre_gameloop(window);
 	
-	while (!glfwWindowShouldClose(window.window)) {
+	for (;;) {
 		{
 			ZoneScopedN("glfwPollEvents");
 			draw_on_size_events = true;
@@ -606,10 +615,15 @@ int run_game (IApp* make_game(Window&), const char* window_title) {
 			draw_on_size_events = false;
 		}
 
-		if (glfwWindowShouldClose(window.window))
-			break;
-		
+		if (glfwWindowShouldClose(window.window)) {
+			_should_close = IApp::CLOSE_PENDING;
+			glfwSetWindowShouldClose(window.window, false); // keep state ourselves
+		}
+
 		window_frame(window);
+
+		if (_should_close == IApp::CLOSE_NOW)
+			break;
 	}
 	
 	delete app;

@@ -44,34 +44,81 @@ inline bool imgui_Header (const char* label, bool default_open=false) {
 	return true;
 }
 
-enum ImGuiDelConf {
-	_IM_NOT_CLICKED = 0,
-	_IM_KEEP,
-	_IM_CONF_DELETE,
+enum class GuiConfirm {
+	PENDING = 0,
+	NO,
+	YES,
 };
-inline ImGuiDelConf imgui_delete_confirmation (const char* name, bool trigger_open) {
-	ImGuiDelConf conf = _IM_NOT_CLICKED;
+inline GuiConfirm imgui_delete_confirmation (const char* name, bool trigger_open) {
+	if (trigger_open)
+		ImGui::OpenPopup("POPUP_delete_confirmation");
 
+	GuiConfirm conf = GuiConfirm::PENDING;
+	
 	if (ImGui::BeginPopup("POPUP_delete_confirmation")) {
 
 		ImGui::Text("Really delete %s?", name);
 		
+		if (ImGui::Button("Keep")) {
+			conf = GuiConfirm::NO;
+			ImGui::CloseCurrentPopup();
+		}
+
 		ImGui::PushStyleColor(ImGuiCol_Button,        0xFF120CFF);
 		ImGui::PushStyleColor(ImGuiCol_ButtonHovered, 0xE24E48FF);
 		ImGui::PushStyleColor(ImGuiCol_ButtonActive,  0xB8241EFF);
-
+		
+		ImGui::SameLine();
 		if (ImGui::Button("DELETE")) {
-			conf = _IM_CONF_DELETE;
+			conf = GuiConfirm::YES;
 			ImGui::CloseCurrentPopup();
 		}
 
 		ImGui::PopStyleColor(3);
 
-		ImGui::SameLine();
-		if (ImGui::Button(" keep ")) {
-			conf = _IM_KEEP;
+		ImGui::EndPopup();
+	}
+
+	return conf;
+}
+
+enum class GuiUnsavedConfirm {
+	PENDING = 0,
+	CANCEL,
+	SAVE,
+	DISCARD,
+};
+inline GuiUnsavedConfirm imgui_unsaved_changes_confirmation () {
+	ImGui::OpenPopup("POPUP_unsaved_confirmation");
+
+	GuiUnsavedConfirm conf = GuiUnsavedConfirm::PENDING;
+	
+	if (ImGui::BeginPopup("POPUP_unsaved_confirmation")) {
+
+		ImGui::Text("You have unsaved changes.");
+		
+		if (ImGui::Button("Cancel")) {
+			conf = GuiUnsavedConfirm::CANCEL;
 			ImGui::CloseCurrentPopup();
 		}
+		
+		ImGui::SameLine();
+		if (ImGui::Button("Save & Close")) {
+			conf = GuiUnsavedConfirm::SAVE;
+			ImGui::CloseCurrentPopup();
+		}
+
+		ImGui::PushStyleColor(ImGuiCol_Button,        0xFF120CFF);
+		ImGui::PushStyleColor(ImGuiCol_ButtonHovered, 0xE24E48FF);
+		ImGui::PushStyleColor(ImGuiCol_ButtonActive,  0xB8241EFF);
+		
+		ImGui::SameLine();
+		if (ImGui::Button("Discard & Close")) {
+			conf = GuiUnsavedConfirm::DISCARD;
+			ImGui::CloseCurrentPopup();
+		}
+
+		ImGui::PopStyleColor(3);
 
 		ImGui::EndPopup();
 	}

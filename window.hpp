@@ -13,6 +13,21 @@ struct IApp {
 	
 	virtual void imgui (Window& window) = 0;
 	virtual void frame (Window& window) = 0;
+	
+	enum ShouldClose {
+		CLOSE_CANCEL=0,
+		CLOSE_PENDING,
+		CLOSE_NOW,
+	};
+	// called during imgui execution when app wants to close
+	// return CLOSE_PENDING when you want to open a popup until the user decides if they really want to close
+	//   -> close_confirmation will be called again the next frame
+	// return CLOSE_CANCEL = when the user wanted to cancel closing
+	// return CLOSE_NOW = when the user wants to close
+	// don't implement this to get normal immediate closing behavior
+	virtual ShouldClose close_confirmation () {
+		return CLOSE_NOW;
+	}
 };
 int run_game (IApp* make_game(Window&), const char* window_title);
 
