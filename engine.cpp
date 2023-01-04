@@ -580,12 +580,13 @@ void window_frame (Window& window) {
 		ZoneScopedN("glfwSwapBuffers");
 		glfwSwapBuffers(window.window);
 	}
-
-	window.input.clear_frame_input();
-	window.input.get_time();
-	window.input.frame_counter++;
-
+	
 	TracyGpuCollect;
+	
+	window.input.frame_counter++;
+	window.input.clear_frame_input();
+	window.input.attempt_sleep_for_max_fps();
+	window.input.get_time();
 }
 
 void Window::draw_imgui () {
@@ -607,7 +608,7 @@ int run_game (IApp* make_game(Window&), const char* window_title) {
 	
 	glfw_input_pre_gameloop(window);
 	
-	for (;;) {
+	while (_should_close != IApp::CLOSE_NOW) {
 		{
 			ZoneScopedN("glfwPollEvents");
 			draw_on_size_events = true;
@@ -621,9 +622,6 @@ int run_game (IApp* make_game(Window&), const char* window_title) {
 		}
 
 		window_frame(window);
-
-		if (_should_close == IApp::CLOSE_NOW)
-			break;
 	}
 	
 	delete app;

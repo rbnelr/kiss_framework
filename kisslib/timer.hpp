@@ -5,6 +5,8 @@ namespace kiss {
 	uint64_t get_timestamp ();
 	extern uint64_t timestamp_freq;
 
+	void sleep_msec (uint32_t msecs);
+
 	struct Timer {
 		uint64_t begin;
 

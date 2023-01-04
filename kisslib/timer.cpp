@@ -17,5 +17,9 @@
 		}
 
 		uint64_t timestamp_freq = get_timestamp_freq();
+
+		void sleep_msec (uint32_t msecs) {
+			Sleep((DWORD)msecs);
+		}
 	}
 #endif

@@ -63,11 +63,19 @@ struct Input {
 	bool _prev_cursor_enabled;
 	
 
+	float _max_fps = 0;
+
 	void imgui () {
 		if (buttons[KEY_COMMA].went_down)
 			pause_time = !pause_time;
 
 		if (!imgui_Header("Input")) return;
+
+		float max_fps = _max_fps;
+		ImGui::SetNextItemWidth(100);
+		if (ImGui::InputFloat("max_fps (eats cpu, only for dbg)", &max_fps, 0, 0, "%.0f", ImGuiInputTextFlags_EnterReturnsTrue))
+			_max_fps = max(max_fps, 0.0f);
+
 
 		ImGui::DragFloat("max_dt", &max_dt, 0.01f);
 		ImGui::DragFloat("time_scale", &time_scale, 0.01f);
@@ -92,6 +100,29 @@ struct Input {
 		for (auto& b : buttons) {
 			b.went_down = 0;
 			b.went_up = 0;
+		}
+	}
+
+	// inaccurate, only use for debugging?
+	void attempt_sleep_for_max_fps () {
+		if (_max_fps == 0) return;
+
+		float target_sec = 1.0f / max(_max_fps, 1.0f);
+		float freq = (float)kiss::timestamp_freq;
+
+		float remain = target_sec - (float)(kiss::get_timestamp() - frame_begin_ts) / freq;
+		
+		//auto sleep_msecs = (int)(remain * 1000) - 16;
+		//if (sleep_msecs > 0) {
+		//	// attempt to use sleep if more than 1 msec remaining
+		//	kiss::sleep_msec((uint32_t)sleep_msecs);
+		//}
+
+		uint64_t target_period = (uint64_t)(freq * target_sec);
+
+		uint64_t target = frame_begin_ts + target_period;
+		while (kiss::get_timestamp() < target) {
+			// busy loop
 		}
 	}
 
