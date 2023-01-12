@@ -263,4 +263,128 @@ namespace kiss {
 		}
 	};
 #endif
+
+
+	template <typename T>
+	struct _equal {
+		inline bool operator() (T const& l, T const& r) const {
+			return l == r;
+		};
+	};
+
+	template <typename U>
+	struct _equal<std::unique_ptr<U>> {
+		inline bool operator() (std::unique_ptr<U> const& l, U const* r) const {
+			return l.get() == r;
+		}
+		inline bool operator() (std::unique_ptr<U> const& l, std::unique_ptr<U> const& r) const {
+			return l == r;
+		};
+	};
+
+	// Acts like a set in that add/remove is O(1)
+	// but implemented as a vector so elements are ordered
+	// but order is unstable, ie changes on remove (implemented as a swap with last)
+	template <typename T, typename EQUAL=_equal<T>>
+	struct vector_set {
+		std::vector<T> vec;
+
+		typedef std::vector<T>::iterator       it_t;
+		typedef std::vector<T>::const_iterator cit_t;
+
+		vector_set () {}
+
+		vector_set (int size, T const& val): vec{(size_t)size, val} {}
+		vector_set (int size): vec{(size_t)size} {}
+
+		vector_set (std::initializer_list<T> list): vec{list} {}
+
+		vector_set (vector_set&& v): vec{std::move(v.vec)} {}
+		vector_set& operator= (vector_set&& v) { vec = std::move(v.vec); return *this; }
+
+		vector_set (vector_set const& v): vec{v.vec} {}
+		vector_set& operator= (vector_set const& v) { vec = v.vec; return *this; }
+
+		it_t begin () { return vec.begin(); }
+		it_t end () { return vec.end(); }
+		cit_t begin () const { return vec.begin(); }
+		cit_t end () const { return vec.end(); }
+
+		int size () const { return (int)vec.size(); }
+		bool empty () const { return vec.empty(); }
+
+		void clear () { vec.clear(); }
+		void reserve (int size) { vec.reserve(size); }
+
+		T& operator[] (int i) {
+			assert(i >= 0 && i < (int)vec.size());
+			return vec[i];
+		}
+		T const& operator[] (int i) const {
+			assert(i >= 0 && i < (int)vec.size());
+			return vec[i];
+		}
+
+		template <typename U>
+		bool contains (U const& val) {
+			return ::indexof(vec, val, EQUAL()) >= 0;
+		}
+
+		template <typename U>
+		void add (U&& val) {
+			assert(!contains(val));
+			vec.emplace_back(std::move(val));
+		}
+		//void add (T const& val) {
+		//	add(val);
+		//}
+
+
+		void _remove_at (int idx) {
+			assert(idx >= 0 && idx < (int)vec.size());
+
+			vec[idx] = std::move(vec[(int)vec.size()-1]);
+			vec.pop_back();
+		}
+
+		template <typename U>
+		bool try_add (U&& val) {
+			if (contains(val))
+				return false;
+			vec.emplace_back(std::move(val));
+			return true;
+		}
+
+		template <typename U>
+		bool try_remove (U const& val) {
+			int idx = indexof(vec, val, EQUAL());
+			if (idx < 0)
+				return false;
+			_remove_at(idx);
+			return true;
+		}
+
+		template <typename Func>
+		int remove_if (Func func) {
+			int old_size = (int)vec.size();
+			for (int i=0; i<(int)vec.size(); ) {
+				if (func(vec[i]))
+					_remove_at(i);
+				else
+					i++;
+			}
+			return old_size - (int)vec.size();
+		}
+
+		template <typename U>
+		bool toggle (U const& val) {
+			int idx = indexof(vec, val, EQUAL());
+			if (idx < 0)
+				add(std::move(val));
+			else {
+				_remove_at(idx);
+			}
+			return idx < 0; // if was added
+		}
+	};
 }
