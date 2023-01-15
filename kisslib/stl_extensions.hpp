@@ -331,21 +331,15 @@ namespace kiss {
 		}
 
 		template <typename U>
-		void add (U&& val) {
+		T& add (U&& val) {
+			if (contains(val))
+				return *(T*)nullptr;
 			assert(!contains(val));
-			vec.emplace_back(std::move(val));
+			return vec.emplace_back(std::move(val));
 		}
 		//void add (T const& val) {
 		//	add(val);
 		//}
-
-
-		void _remove_at (int idx) {
-			assert(idx >= 0 && idx < (int)vec.size());
-
-			vec[idx] = std::move(vec[(int)vec.size()-1]);
-			vec.pop_back();
-		}
 
 		template <typename U>
 		bool try_add (U&& val) {
@@ -353,6 +347,23 @@ namespace kiss {
 				return false;
 			vec.emplace_back(std::move(val));
 			return true;
+		}
+
+
+		T _remove_at (int idx) {
+			assert(idx >= 0 && idx < (int)vec.size());
+
+			vec[idx] = std::move(vec[(int)vec.size()-1]);
+			auto back = std::move(vec.back());
+			vec.pop_back();
+			return back;
+		}
+
+		template <typename U>
+		T remove (U const& val) {
+			int idx = indexof(vec, val, EQUAL());
+			assert(idx >= 0);
+			return _remove_at(idx);
 		}
 
 		template <typename U>
@@ -363,6 +374,7 @@ namespace kiss {
 			_remove_at(idx);
 			return true;
 		}
+
 
 		template <typename Func>
 		int remove_if (Func func) {

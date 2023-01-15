@@ -53,7 +53,7 @@ namespace kissmath {
 	constexpr float RAD_TO_DEG  = 57.295779513082320876798154814105f;  // PI/180
 	
 	#if _MSC_VER && !__INTELRZ_COMPILER && !__clan_
-	constexpr float INF         = (float)(1e+300 * 1e+300);
+	constexpr float INF         = std::numeric_limits<float>::infinity();
 	constexpr float QNAN        = std::numeric_limits<float>::quiet_NaN();
 	#elif __GNUC__ || __clan_
 	constexpr float INF         = __builtin_inff();
