@@ -162,7 +162,7 @@ struct MacroDefinition {
 
 struct Shader;
 bool compile_shader (Shader& shad, const char* name, const char* dbgname,
-		std::vector<ShaderStage> const& stages, std::vector<MacroDefinition> const& macros);
+		std::vector<ShaderStage> const& stages, std::vector<MacroDefinition> const& macros, bool wireframe);
 
 struct Shader {
 	GLuint                          prog = 0;
@@ -181,10 +181,10 @@ struct Shader {
 		prog = 0;
 	}
 	
-	inline bool recompile () {
+	inline bool recompile (bool wireframe) {
 		Shader tmp;
 
-		bool success = compile_shader(tmp, name.c_str(), dbgname.c_str(), stages, macros);
+		bool success = compile_shader(tmp, name.c_str(), dbgname.c_str(), stages, macros, wireframe);
 		
 		if (success) {
 			// success, delete old shader
@@ -229,6 +229,8 @@ struct Shaders {
 	// Shaders are owned by global Shaders objects
 	// if users no longer use shader it still sticks around until the end of the program for simplicity
 	std::vector<std::unique_ptr<Shader>> shaders;
+
+	bool wireframe = false;
 	
 	inline void shutdown () {
 		shaders.clear();
@@ -243,20 +245,25 @@ struct Shaders {
 				if (changed_files.contains_any(s->src_files, FILE_ADDED|FILE_MODIFIED|FILE_RENAMED_NEW_NAME, &changed_file)) {
 					// any source file was changed
 					fprintf(stdout, "[Shaders] Recompile shader %-35s due to shader source change (%s)\n", s->name.c_str(), changed_file->c_str());
-					if (!s->recompile())
+					if (!s->recompile(wireframe))
 						success = false; // any failed shader signals reload fail
 				}
 			}
 		}
+
+		return success;
+	}
+	inline bool set_wireframe (bool wireframe) {
+		bool success = true;
 		
-		/*
 		if (this->wireframe != wireframe) {
 			this->wireframe = wireframe;
-        
+			
 			for (auto& s : shaders) {
-				s->recompile("wireframe toggle", wireframe);
+				fprintf(stdout, "[Shaders] Recompile shader %-35s due to wireframe toggle\n", s->name.c_str());
+				s->recompile(wireframe);
 			}
-		}*/
+		}
 		
 		return success;
 	}
@@ -273,7 +280,7 @@ struct Shaders {
 		s->stages = stages;
 		s->macros = std::move(macros);
 
-		bool success = compile_shader(*s, s->name.c_str(), s->dbgname.c_str(), s->stages, s->macros);
+		bool success = compile_shader(*s, s->name.c_str(), s->dbgname.c_str(), s->stages, s->macros, wireframe);
 		
 		auto* ptr = s.get();
 		// remember shader regardless of compilation success to allow for shaders with errors

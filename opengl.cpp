@@ -213,14 +213,14 @@ std::string preprocessor_insert_macro_defs (std::string const& source, char cons
 	return result;
 }
 
-std::string shader_macros (std::vector<MacroDefinition> const& macros, ShaderStage stage) {
+std::string shader_macros (std::vector<MacroDefinition> const& macros, ShaderStage stage, bool wireframe) {
 	std::string macro_text;
 	macro_text.reserve(512);
 
 	macro_text += "// Per-shader macro definitions\n";
 	macro_text += prints("#define %s\n", SHADER_STAGE_MACRO[stage]);
-	//if (wireframe)
-	//	macro_text += prints("#define _WIREFRAME\n");
+	if (wireframe)
+		macro_text += prints("#define _WIREFRAME\n");
 	for (auto& m : macros)
 		macro_text += prints("#define %s %s\n", m.name.c_str(), m.value.c_str());
 	macro_text += "\n";
@@ -352,7 +352,7 @@ uniform_set get_uniforms (GLuint prog) {
 
 ////
 bool compile_shader (Shader& shad, const char* name, const char* dbgname,
-		std::vector<ShaderStage> const& stages, std::vector<MacroDefinition> const& macros) {
+		std::vector<ShaderStage> const& stages, std::vector<MacroDefinition> const& macros, bool wireframe) {
 	shad.src_files.clear();
 	shad.uniforms.clear();
 
@@ -381,7 +381,7 @@ bool compile_shader (Shader& shad, const char* name, const char* dbgname,
 		GLuint shad = glCreateShader(SHADER_STAGE_GLENUM[stage]);
 		glAttachShader(prog, shad);
 	
-		std::string stage_source = preprocessor_insert_macro_defs(source, filename.c_str(), shader_macros(macros, stage));
+		std::string stage_source = preprocessor_insert_macro_defs(source, filename.c_str(), shader_macros(macros, stage, wireframe));
 
 		{
 			const char* ptr = stage_source.c_str();
