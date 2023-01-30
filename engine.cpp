@@ -8,7 +8,7 @@
 #include "opengl.hpp"
 #include "GLFW/glfw3.h"
 
-#include "../game.hpp" // for imgui_style()
+#include "../app.hpp" // for imgui_style()
 
 inline int _vsync_on_interval = 1;
 void Window::set_vsync (bool vsync) {
