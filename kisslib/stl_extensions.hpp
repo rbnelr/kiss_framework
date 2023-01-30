@@ -316,14 +316,14 @@ namespace kiss {
 		void clear () { vec.clear(); }
 		void reserve (int size) { vec.reserve(size); }
 
-		T& operator[] (int i) {
-			assert(i >= 0 && i < (int)vec.size());
-			return vec[i];
-		}
-		T const& operator[] (int i) const {
-			assert(i >= 0 && i < (int)vec.size());
-			return vec[i];
-		}
+		//T& operator[] (int i) {
+		//	assert(i >= 0 && i < (int)vec.size());
+		//	return vec[i];
+		//}
+		//T const& operator[] (int i) const {
+		//	assert(i >= 0 && i < (int)vec.size());
+		//	return vec[i];
+		//}
 
 		template <typename U>
 		bool contains (U const& val) {
