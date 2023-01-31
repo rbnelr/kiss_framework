@@ -76,7 +76,7 @@ namespace kiss {
 	// returns lowest index where are_equal(vec[i], r) returns true or -1 if none are found
 	// bool are_equal(VT const& l, T const& r)
 	template <typename VT, typename T, typename EQUAL, typename Alloc>
-	inline int indexof (std::vector<VT, Alloc> const& vec, T& r, EQUAL are_equal) {
+	inline int indexof (std::vector<VT, Alloc> const& vec, T const& r, EQUAL are_equal) {
 		for (int i=0; i<(int)vec.size(); ++i)
 			if (are_equal(vec[i], r))
 				return i;
