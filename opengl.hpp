@@ -421,6 +421,24 @@ public:
 
 	operator GLuint () const { return tex; }
 };
+class Texture1DArray {
+	GLuint tex = 0;
+public:
+	MOVE_ONLY_CLASS_MEMBER(Texture1DArray, tex);
+
+	Texture1DArray () {} // not allocated
+	Texture1DArray (std::string_view label) { // allocate
+		glGenTextures(1, &tex);
+		glBindTexture(GL_TEXTURE_1D_ARRAY, tex);
+		OGL_DBG_LABEL(GL_TEXTURE, tex, label);
+		glBindTexture(GL_TEXTURE_1D_ARRAY, 0);
+	}
+	~Texture1DArray () {
+		if (tex) glDeleteTextures(1, &tex);
+	}
+
+	operator GLuint () const { return tex; }
+};
 class Texture2D {
 	GLuint tex = 0;
 public:
@@ -900,6 +918,7 @@ struct StateManager {
 
 			_Texture (): type{0}, tex{0} {}
 			_Texture (Texture1D      const& tex): type{ GL_TEXTURE_1D       }, tex{tex} {}
+			_Texture (Texture1DArray const& tex): type{ GL_TEXTURE_1D_ARRAY }, tex{tex} {}
 			_Texture (Texture2D      const& tex): type{ GL_TEXTURE_2D       }, tex{tex} {}
 			_Texture (Texture3D      const& tex): type{ GL_TEXTURE_3D       }, tex{tex} {}
 			_Texture (Texture2DArray const& tex): type{ GL_TEXTURE_2D_ARRAY }, tex{tex} {}
