@@ -176,36 +176,8 @@ inline float smooth_var (float dt, float cur, float target, float smooth_fac, fl
 // 2D Orthographic camera
 struct Camera2D {
 	// TODO: serialize binds
-	//SERIALIZE(Camera2D, pos, zoom, rot, move_speed, zoom_smooth_fac, zoom_speed, stretch, clip_near, clip_far)
-	
-	// Need to manually serialize to avoid animated zoom in at load
-	friend void to_json(nlohmann::ordered_json& j, const Camera2D& t) {
-		j["pos"            ] = t.pos             ;
-		j["zoom"           ] = t.zoom            ;
-		j["rot"            ] = t.rot             ;
-		j["move_speed"     ] = t.move_speed      ;
-		j["zoom_smooth_fac"] = t.zoom_smooth_fac ;
-		j["zoom_speed"     ] = t.zoom_speed      ;
-		j["stretch"        ] = t.stretch         ;
-		j["clip_near"      ] = t.clip_near       ;
-		j["clip_far"       ] = t.clip_far        ;
-	}
-	friend void from_json(const nlohmann::ordered_json& j, Camera2D& t) {
-		if (j.contains("pos"            )) j.at("pos"            ).get_to(t.pos            );
-		if (j.contains("zoom"           )) j.at("zoom"           ).get_to(t.zoom           );
-		if (j.contains("rot"            )) j.at("rot"            ).get_to(t.rot            );
-		if (j.contains("move_speed"     )) j.at("move_speed"     ).get_to(t.move_speed     );
-		if (j.contains("zoom_smooth_fac")) j.at("zoom_smooth_fac").get_to(t.zoom_smooth_fac);
-		if (j.contains("zoom_speed"     )) j.at("zoom_speed"     ).get_to(t.zoom_speed     );
-		if (j.contains("stretch"        )) j.at("stretch"        ).get_to(t.stretch        );
-		if (j.contains("clip_near"      )) j.at("clip_near"      ).get_to(t.clip_near      );
-		if (j.contains("clip_far"       )) j.at("clip_far"       ).get_to(t.clip_far       );
-
-		// HERE: need this to avoid animated zoom in at load
-		t.zoom_target = t.zoom;
-		t.stretch_target = t.stretch;
-	}
-
+	SERIALIZE(Camera2D, pos, zoom, rot, move_speed, zoom_smooth_fac, zoom_speed, stretch, clip_near, clip_far)
+		
 	float3 pos  = 0; // center of visible region in world space (note z component can be left at 0 usually)
 	float  zoom = 10; // log2 of height of visible region in world space
 	float  rot  = 0; // rotation in radians
@@ -225,8 +197,6 @@ struct Camera2D {
 	float2 _drag_pos = 0;
 
 	struct Binds {
-		Button drag        = MOUSE_BUTTON_RIGHT;
-		
 		Button move_left   = KEY_A;
 		Button move_right  = KEY_D;
 		Button move_down   = KEY_S;
@@ -234,16 +204,13 @@ struct Camera2D {
 
 		//Button rot_left    = KEY_Q;
 		//Button rot_right   = KEY_E;
-		Button rot_left    = KEY_NULL;
-		Button rot_right   = KEY_NULL;
+		Button rot_left    = KEY_UNKNOWN;
+		Button rot_right   = KEY_UNKNOWN;
 
 		Button zoom_in     = KEY_KP_ADD;
 		Button zoom_out    = KEY_KP_SUBTRACT;
 
-		//Button stretch_X   = KEY_LEFT_ALT;
-		//Button stretch_Y   = KEY_LEFT_CONTROL;
-		Button stretch_X   = KEY_NULL;
-		Button stretch_Y   = KEY_NULL;
+		Button drag        = MOUSE_BUTTON_RIGHT;
 	};
 
 	Binds binds;
@@ -283,14 +250,6 @@ struct Camera2D {
 		ImGui::TreePop();
 	}
 
-	void zoom_to (float view_height) {
-		zoom_target = -log2f(view_height);
-	}
-	void zoom_to_noanim (float view_height) {
-		zoom_to(view_height);
-		zoom = zoom_target;
-	}
-
 	View3D update (Input& I, float2 const& viewport_size) {
 		// key rotation
 		float rot_dir = 0;
@@ -317,13 +276,13 @@ struct Camera2D {
 		// mousewheel zoom
 		zoom_delta += (float)I.mouse_wheel_delta * zoom_speed;
 
-		if (I.buttons[binds.stretch_X].is_down) {      // zoom on X axis (keep Y size same)
-			stretch_target += zoom_delta;
-		}
-		else if (I.buttons[binds.stretch_Y].is_down) { // zoom on Y axis (keep X size same)
+		if      (I.buttons[KEY_LEFT_CONTROL].is_down) {  // zoom on Y axis (keep X size same)
 			// doing this makes zoom and stretch cancel each other out for the X scale
 			zoom_target    += zoom_delta;
 			stretch_target -= zoom_delta;
+		}
+		else if (I.buttons[KEY_LEFT_ALT].is_down) {  // zoom on X axis (keep Y size same)
+			stretch_target += zoom_delta;
 		}
 		else { // normal zoom (both axes)
 			zoom_target += zoom_delta;

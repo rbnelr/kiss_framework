@@ -295,7 +295,7 @@ namespace kiss {
 		}
 	};
 
-	void DirectoyChangeNotifier::init (std::string_view directory_path, bool watch_subdirs) {
+	DirectoyChangeNotifier::DirectoyChangeNotifier (std::string_view directory_path, bool watch_subdirs) {
 
 		this->directory_path = directory_path;
 		this->watch_subdirs = watch_subdirs;
@@ -304,7 +304,7 @@ namespace kiss {
 
 		((DirectoyChangeNotifier_OSData*)os_data)->init(this->directory_path, watch_subdirs);
 	}
-	void DirectoyChangeNotifier::shutdown () {
+	DirectoyChangeNotifier::~DirectoyChangeNotifier () {
 		((DirectoyChangeNotifier_OSData*)os_data)->close();
 
 		free(os_data);

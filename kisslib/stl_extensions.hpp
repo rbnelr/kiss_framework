@@ -289,8 +289,8 @@ namespace kiss {
 	struct vector_set {
 		std::vector<T> vec;
 
-		typedef std::vector<T>::iterator       it_t;
-		typedef std::vector<T>::const_iterator cit_t;
+		typedef typename std::vector<T>::iterator       it_t;
+		typedef typename std::vector<T>::const_iterator cit_t;
 
 		vector_set () {}
 

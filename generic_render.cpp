@@ -1,14 +1,17 @@
-#include "dbgdraw.hpp"
+#include "common.hpp"
+#include "generic_render.hpp"
 
+namespace render {
+	
 void DebugDraw::vector (float3 const& pos, float3 const& dir, lrgba const& col) {
-	auto* out = kiss::push_back(lines, 2);
+	auto* out = push_back(lines, 2);
 
 	*out++ = { pos, col };
 	*out++ = { pos + dir, col };
 }
 
 void DebugDraw::point (float3 const& pos, float3 const& size, lrgba const& col) {
-	auto* out = kiss::push_back(lines, 8);
+	auto* out = push_back(lines, 8);
 
 	*out++ = { pos + size * float3(-1,-1,-1), col };
 	*out++ = { pos + size * float3(+1,+1,+1), col };
@@ -24,13 +27,13 @@ void DebugDraw::point (float3 const& pos, float3 const& size, lrgba const& col) 
 }
 
 void DebugDraw::wire_quad (float3 const& pos, float2 size, lrgba const& col) {
-	auto* out = kiss::push_back(lines, ARRLEN(_wire_quad_indices));
+	auto* out = push_back(lines, ARRLEN(shapes::WIRE_QUAD_INDICES));
 
-	for (auto& idx : _wire_quad_indices) {
-		auto& v = _wire_quad_vertices[idx];
+	for (auto& idx : shapes::WIRE_QUAD_INDICES) {
+		auto& v = shapes::QUAD_VERTICES[idx];
 
-		out->pos.x = v.x * size.x + pos.x;
-		out->pos.y = v.y * size.y + pos.y;
+		out->pos.x = v.pos.x * size.x + pos.x;
+		out->pos.y = v.pos.y * size.y + pos.y;
 		out->pos.z = pos.z;
 
 		out->col = col;
@@ -39,10 +42,10 @@ void DebugDraw::wire_quad (float3 const& pos, float2 size, lrgba const& col) {
 	}
 }
 void DebugDraw::wire_cube (float3 const& pos, float3 const& size, lrgba const& col) {
-	auto* out = kiss::push_back(lines, ARRLEN(_wire_cube_indices));
+	auto* out = push_back(lines, ARRLEN(shapes::WIRE_CUBE_INDICES));
 
-	for (auto& idx : _wire_cube_indices) {
-		auto& v = _wire_cube_vertices[idx];
+	for (auto& idx : shapes::WIRE_CUBE_INDICES) {
+		auto& v = shapes::WIRE_CUBE_VERTICES[idx];
 
 		out->pos.x = v.x * size.x + pos.x;
 		out->pos.y = v.y * size.y + pos.y;
@@ -60,7 +63,7 @@ void DebugDraw::wire_sphere (float3 const& pos, float r, lrgba const& col, int a
 
 	int count = (wiresz + wiresxy) * angres * 2; // every wire is <angres> lines, <wires> * 2 because horiz and vert wires
 
-	auto* out = kiss::push_back(lines, count);
+	auto* out = push_back(lines, count);
 
 	float ang_step = deg(360) / (float)angres;
 
@@ -118,7 +121,7 @@ void DebugDraw::wire_sphere (float3 const& pos, float r, lrgba const& col, int a
 void DebugDraw::wire_cone (float3 const& pos, float ang, float length, float3x3 const& rot, lrgba const& col, int circres, int wires) {
 	int count = (circres + wires) * 2;
 
-	auto* out = kiss::push_back(lines, count);
+	auto* out = push_back(lines, count);
 
 	float r = tan(ang * 0.5f);
 
@@ -156,7 +159,7 @@ void DebugDraw::wire_cone (float3 const& pos, float ang, float length, float3x3 
 }
 
 void DebugDraw::quad (float3 const& pos, float2 size, lrgba const& col) {
-	auto* out = kiss::push_back(tris, 6);
+	auto* out = push_back(tris, 6);
 	
 	*out++ = { pos + float3(size.x,      0, 0), float3(0,0,1), col };
 	*out++ = { pos + float3(size.x, size.y, 0), float3(0,0,1), col };
@@ -167,15 +170,15 @@ void DebugDraw::quad (float3 const& pos, float2 size, lrgba const& col) {
 }
 
 void DebugDraw::cylinder (float3 const& base, float radius, float height, lrgba const& col, int sides) {
-	auto* out = kiss::push_back(tris, sides * 4 * 3); // tri for bottom + top cap + 2 tris for side
+	auto* out = push_back(tris, sides * 4 * 3); // tri for bottom + top cap + 2 tris for side
 
 	float ang_step = 2*PI / (float)sides;
 
 	float sin0=0, cos0=1; // optimize not calling sin 2x per loop
 
-	auto push = [&] (float3 pos, float3 normal) {
+	auto push = [&] (float3 pos, float3 norm) {
 		out->pos = pos * float3(radius, radius, height) + base;
-		out->normal = normal;
+		out->norm = norm;
 		out->col = col;
 		out++;
 	};
@@ -206,6 +209,43 @@ void DebugDraw::cylinder (float3 const& base, float radius, float height, lrgba 
 	}
 }
 
+namespace shapes {
+	
+	void wire_sphere (std::vector<float3>* vertices, std::vector<uint16_t>* indices, float r, int segments) {
+		int count = 3 * segments;
+
+		auto* vert = push_back(*vertices, 3 * segments);
+		auto* ind = push_back(*indices, 3 * segments*2);
+
+		float ang_step = deg(360) / (float)segments;
+
+		for (int i=0; i<segments; ++i) {
+			float s = sin((float)i * ang_step);
+			float c = cos((float)i * ang_step);
+
+			vert[i           ] = float3(c,s,0) * r;
+			vert[i+segments  ] = float3(c,0,s) * r;
+			vert[i+segments*2] = float3(0,c,s) * r;
+		}
+
+		uint16_t base = 0;
+		for (int i=0; i<segments; ++i) {
+			*ind++ = base + (uint16_t)( i );
+			*ind++ = base + (uint16_t)((i+1) == segments ? 0 : i+1);
+		}
+		base += segments;
+		for (int i=0; i<segments; ++i) {
+			*ind++ = base + (uint16_t)( i );
+			*ind++ = base + (uint16_t)((i+1) == segments ? 0 : i+1);
+		}
+		base += segments;
+		for (int i=0; i<segments; ++i) {
+			*ind++ = base + (uint16_t)( i );
+			*ind++ = base + (uint16_t)((i+1) == segments ? 0 : i+1);
+		}
+	}
+}
+
 void DebugDraw::axis_gizmo (View3D const& view, int2 const& viewport_size) {
 	//float2 pos_px = float2(viewport_size.x - 100.5f, 100.5f);
 	//float2 pos_clip = pos_px / (float2)viewport_size * 2.0f - 1.0f;
@@ -222,3 +262,5 @@ void DebugDraw::axis_gizmo (View3D const& view, int2 const& viewport_size) {
 	vector(pos_world, float3(0,size_world,0), lrgba(0,1,0,1));
 	vector(pos_world, float3(0,0,size_world), lrgba(0,0,1,1));
 }
+
+} // namespace render
