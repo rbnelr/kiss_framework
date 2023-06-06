@@ -5,37 +5,13 @@
 #include "tracy/TracyOpenGL.hpp"
 
 #include "camera.hpp"
-#include "dbgdraw.hpp"
+
+#include "kisslib/stb_image_write.hpp"
 
 namespace ogl {
-	
-// D---C
-// | / |
-// A---B
-#define QUAD_INDICES(a,b,c,d) b,c,a, a,c,d
-
-inline void push_quad (uint16_t* out, uint16_t a, uint16_t b, uint16_t c, uint16_t d) {
-	// D---C
-	// | / |
-	// A---B
-	out[0] = b;
-	out[1] = c;
-	out[2] = a;
-	out[3] = a;
-	out[4] = c;
-	out[5] = d;
-}
-inline void push_quad2 (uint16_t* out, uint16_t a, uint16_t b, uint16_t c, uint16_t d) {
-	// D---C
-	// | \ |
-	// A---B
-	out[0] = a;
-	out[1] = b;
-	out[2] = d;
-	out[3] = d;
-	out[4] = b;
-	out[5] = c;
-}
+//
+//// MISC stuff
+//
 
 #if OGL_USE_REVERSE_DEPTH
 //// Use reverse depth to fix depth precision issues if possible
@@ -79,221 +55,242 @@ struct _ScopedGpuTrace {
 #define OGL_TRACE(name) TracyGpuZone(name)
 #endif
 
+typedef struct {
+	uint32_t  count;
+	uint32_t  instanceCount;
+	uint32_t  first;
+	uint32_t  baseInstance;
+} glDrawArraysIndirectCommand;
+typedef struct {
+	uint32_t count;
+	uint32_t primCount;
+	uint32_t firstIndex;
+	uint32_t baseVertex;
+	uint32_t baseInstance;
+} glDrawElementsIndirectCommand;
+
 
 void APIENTRY debug_callback (GLenum source, GLenum type, GLuint id, GLenum severity, GLsizei length, const char* message, void const* userParam);
 
-struct ShaderUniform {
-	std::string	name;
-	GLenum		type;
-	GLint		location;
-};
+//
+//// Shader manager
+//
+namespace shader {
+	struct Uniform {
+		std::string	name;
+		GLenum		type;
+		GLint		location;
+	};
 
-//typedef ordered_map<std::string, ShaderUniform> uniform_set;
-typedef std::vector<ShaderUniform> uniform_set;
+	//typedef ordered_map<std::string, ShaderUniform> uniform_set;
+	typedef std::vector<Uniform> uniform_set;
 
-namespace uniforms {
-	inline void _check_uniform (ShaderUniform& u, GLenum passed) {
+	inline void _check_uniform (Uniform& u, GLenum passed) {
 		if (u.type == passed) return;
 		if (passed == GL_INT && (u.type == GL_SAMPLER_1D || u.type == GL_SAMPLER_2D || u.type == GL_SAMPLER_3D)) return;
 		fprintf(stderr, "%x\n", u.type);
 		assert(false);
 	}
 
-	inline void _set_uniform (ShaderUniform& u, float    const* values, int arr_count) { _check_uniform(u, GL_FLOAT        ); glUniform1fv(u.location, arr_count, values); }
-	inline void _set_uniform (ShaderUniform& u, float2   const* values, int arr_count) { _check_uniform(u, GL_FLOAT_VEC2   ); glUniform2fv(u.location, arr_count, &values->x); }
-	inline void _set_uniform (ShaderUniform& u, float3   const* values, int arr_count) { _check_uniform(u, GL_FLOAT_VEC3   ); glUniform3fv(u.location, arr_count, &values->x); }
-	inline void _set_uniform (ShaderUniform& u, float4   const* values, int arr_count) { _check_uniform(u, GL_FLOAT_VEC4   ); glUniform4fv(u.location, arr_count, &values->x); }
-	inline void _set_uniform (ShaderUniform& u, int      const* values, int arr_count) { _check_uniform(u, GL_INT          ); glUniform1iv(u.location, arr_count, values); }
-	inline void _set_uniform (ShaderUniform& u, uint32_t const* values, int arr_count) { _check_uniform(u, GL_UNSIGNED_INT ); glUniform1uiv(u.location, arr_count, values); }
-	inline void _set_uniform (ShaderUniform& u, int2     const* values, int arr_count) { _check_uniform(u, GL_INT_VEC2     ); glUniform2iv(u.location, arr_count, &values->x); }
-	inline void _set_uniform (ShaderUniform& u, int3     const* values, int arr_count) { _check_uniform(u, GL_INT_VEC3     ); glUniform3iv(u.location, arr_count, &values->x); }
-	inline void _set_uniform (ShaderUniform& u, int4     const* values, int arr_count) { _check_uniform(u, GL_INT_VEC4     ); glUniform4iv(u.location, arr_count, &values->x); }
-	inline void _set_uniform (ShaderUniform& u, float2x2 const* values, int arr_count) { _check_uniform(u, GL_FLOAT_MAT2   ); glUniformMatrix2fv(u.location, arr_count, GL_FALSE, &values->arr[0].x); }
-	inline void _set_uniform (ShaderUniform& u, float3x3 const* values, int arr_count) { _check_uniform(u, GL_FLOAT_MAT3   ); glUniformMatrix3fv(u.location, arr_count, GL_FALSE, &values->arr[0].x); }
-	inline void _set_uniform (ShaderUniform& u, float4x4 const* values, int arr_count) { _check_uniform(u, GL_FLOAT_MAT4   ); glUniformMatrix4fv(u.location, arr_count, GL_FALSE, &values->arr[0].x); }
+	inline void _set_uniform (Uniform& u, float    const* values, int arr_count) { _check_uniform(u, GL_FLOAT        ); glUniform1fv(u.location, arr_count, values); }
+	inline void _set_uniform (Uniform& u, float2   const* values, int arr_count) { _check_uniform(u, GL_FLOAT_VEC2   ); glUniform2fv(u.location, arr_count, &values->x); }
+	inline void _set_uniform (Uniform& u, float3   const* values, int arr_count) { _check_uniform(u, GL_FLOAT_VEC3   ); glUniform3fv(u.location, arr_count, &values->x); }
+	inline void _set_uniform (Uniform& u, float4   const* values, int arr_count) { _check_uniform(u, GL_FLOAT_VEC4   ); glUniform4fv(u.location, arr_count, &values->x); }
+	inline void _set_uniform (Uniform& u, int      const* values, int arr_count) { _check_uniform(u, GL_INT          ); glUniform1iv(u.location, arr_count, values); }
+	inline void _set_uniform (Uniform& u, uint32_t const* values, int arr_count) { _check_uniform(u, GL_UNSIGNED_INT ); glUniform1uiv(u.location, arr_count, values); }
+	inline void _set_uniform (Uniform& u, int2     const* values, int arr_count) { _check_uniform(u, GL_INT_VEC2     ); glUniform2iv(u.location, arr_count, &values->x); }
+	inline void _set_uniform (Uniform& u, int3     const* values, int arr_count) { _check_uniform(u, GL_INT_VEC3     ); glUniform3iv(u.location, arr_count, &values->x); }
+	inline void _set_uniform (Uniform& u, int4     const* values, int arr_count) { _check_uniform(u, GL_INT_VEC4     ); glUniform4iv(u.location, arr_count, &values->x); }
+	inline void _set_uniform (Uniform& u, float2x2 const* values, int arr_count) { _check_uniform(u, GL_FLOAT_MAT2   ); glUniformMatrix2fv(u.location, arr_count, GL_FALSE, &values->arr[0].x); }
+	inline void _set_uniform (Uniform& u, float3x3 const* values, int arr_count) { _check_uniform(u, GL_FLOAT_MAT3   ); glUniformMatrix3fv(u.location, arr_count, GL_FALSE, &values->arr[0].x); }
+	inline void _set_uniform (Uniform& u, float4x4 const* values, int arr_count) { _check_uniform(u, GL_FLOAT_MAT4   ); glUniformMatrix4fv(u.location, arr_count, GL_FALSE, &values->arr[0].x); }
 
-	inline void _set_uniform (ShaderUniform& u, bool     const& val) { _check_uniform(u, GL_BOOL         ); glUniform1i(u.location, val ? GL_TRUE : GL_FALSE); }
-	inline void _set_uniform (ShaderUniform& u, float    const& val) { _check_uniform(u, GL_FLOAT        ); glUniform1f(u.location, val); }
-	inline void _set_uniform (ShaderUniform& u, float2   const& val) { _check_uniform(u, GL_FLOAT_VEC2   ); glUniform2fv(u.location, 1, &val.x); }
-	inline void _set_uniform (ShaderUniform& u, float3   const& val) { _check_uniform(u, GL_FLOAT_VEC3   ); glUniform3fv(u.location, 1, &val.x); }
-	inline void _set_uniform (ShaderUniform& u, float4   const& val) { _check_uniform(u, GL_FLOAT_VEC4   ); glUniform4fv(u.location, 1, &val.x); }
-	inline void _set_uniform (ShaderUniform& u, int      const& val) { _check_uniform(u, GL_INT          ); glUniform1i(u.location, val); }
-	inline void _set_uniform (ShaderUniform& u, uint32_t const& val) { _check_uniform(u, GL_UNSIGNED_INT ); glUniform1ui(u.location, val); }
-	inline void _set_uniform (ShaderUniform& u, int2     const& val) { _check_uniform(u, GL_INT_VEC2     ); glUniform2iv(u.location, 1, &val.x); }
-	inline void _set_uniform (ShaderUniform& u, int3     const& val) { _check_uniform(u, GL_INT_VEC3     ); glUniform3iv(u.location, 1, &val.x); }
-	inline void _set_uniform (ShaderUniform& u, int4     const& val) { _check_uniform(u, GL_INT_VEC4     ); glUniform4iv(u.location, 1, &val.x); }
-	inline void _set_uniform (ShaderUniform& u, float2x2 const& val) { _check_uniform(u, GL_FLOAT_MAT2   ); glUniformMatrix2fv(u.location, 1, GL_FALSE, &val.arr[0].x); }
-	inline void _set_uniform (ShaderUniform& u, float3x3 const& val) { _check_uniform(u, GL_FLOAT_MAT3   ); glUniformMatrix3fv(u.location, 1, GL_FALSE, &val.arr[0].x); }
-	inline void _set_uniform (ShaderUniform& u, float4x4 const& val) { _check_uniform(u, GL_FLOAT_MAT4   ); glUniformMatrix4fv(u.location, 1, GL_FALSE, &val.arr[0].x); }
+	inline void _set_uniform (Uniform& u, bool     const& val) { _check_uniform(u, GL_BOOL         ); glUniform1i(u.location, val ? GL_TRUE : GL_FALSE); }
+	inline void _set_uniform (Uniform& u, float    const& val) { _check_uniform(u, GL_FLOAT        ); glUniform1f(u.location, val); }
+	inline void _set_uniform (Uniform& u, float2   const& val) { _check_uniform(u, GL_FLOAT_VEC2   ); glUniform2fv(u.location, 1, &val.x); }
+	inline void _set_uniform (Uniform& u, float3   const& val) { _check_uniform(u, GL_FLOAT_VEC3   ); glUniform3fv(u.location, 1, &val.x); }
+	inline void _set_uniform (Uniform& u, float4   const& val) { _check_uniform(u, GL_FLOAT_VEC4   ); glUniform4fv(u.location, 1, &val.x); }
+	inline void _set_uniform (Uniform& u, int      const& val) { _check_uniform(u, GL_INT          ); glUniform1i(u.location, val); }
+	inline void _set_uniform (Uniform& u, uint32_t const& val) { _check_uniform(u, GL_UNSIGNED_INT ); glUniform1ui(u.location, val); }
+	inline void _set_uniform (Uniform& u, int2     const& val) { _check_uniform(u, GL_INT_VEC2     ); glUniform2iv(u.location, 1, &val.x); }
+	inline void _set_uniform (Uniform& u, int3     const& val) { _check_uniform(u, GL_INT_VEC3     ); glUniform3iv(u.location, 1, &val.x); }
+	inline void _set_uniform (Uniform& u, int4     const& val) { _check_uniform(u, GL_INT_VEC4     ); glUniform4iv(u.location, 1, &val.x); }
+	inline void _set_uniform (Uniform& u, float2x2 const& val) { _check_uniform(u, GL_FLOAT_MAT2   ); glUniformMatrix2fv(u.location, 1, GL_FALSE, &val.arr[0].x); }
+	inline void _set_uniform (Uniform& u, float3x3 const& val) { _check_uniform(u, GL_FLOAT_MAT3   ); glUniformMatrix3fv(u.location, 1, GL_FALSE, &val.arr[0].x); }
+	inline void _set_uniform (Uniform& u, float4x4 const& val) { _check_uniform(u, GL_FLOAT_MAT4   ); glUniformMatrix4fv(u.location, 1, GL_FALSE, &val.arr[0].x); }
 
-	inline bool _findUniform (ShaderUniform const& l, std::string_view const& r) { return l.name == r; }
-}
-
-enum ShaderStage {
-	VERTEX_SHADER,
-	FRAGMENT_SHADER,
-	COMPUTE_SHADER,
-	GEOMETRY_SHADER,
-};
-
-inline constexpr GLenum SHADER_STAGE_GLENUM[] = {
-	GL_VERTEX_SHADER,
-	GL_FRAGMENT_SHADER,
-	GL_COMPUTE_SHADER,
-	GL_GEOMETRY_SHADER,
-};
-inline constexpr const char* SHADER_STAGE_NAME[] = {
-	"vertex",
-	"fragment",
-	"compute",
-	"geometry",
-};
-inline constexpr const char* SHADER_STAGE_MACRO[] = {
-	"_VERTEX",
-	"_FRAGMENT",
-	"_COMPUTE",
-	"_GEOMETRY",
-};
-
-struct MacroDefinition {
-	std::string name;
-	std::string value;
-};
-
-struct Shader;
-bool compile_shader (Shader& shad, const char* name, const char* dbgname,
-		std::vector<ShaderStage> const& stages, std::vector<MacroDefinition> const& macros, bool wireframe);
-
-struct Shader {
-	GLuint                          prog = 0;
+	inline bool _findUniform (Uniform const& l, std::string_view const& r) { return l.name == r; }
 	
-	std::string                     name;
-	std::string                     dbgname;
+	enum Stage {
+		VERTEX_SHADER,
+		FRAGMENT_SHADER,
+		COMPUTE_SHADER,
+		GEOMETRY_SHADER,
+	};
 
-	std::vector<ShaderStage>        stages;
-	std::vector<MacroDefinition>    macros;
-	
-	uniform_set                     uniforms;
-	std::vector<std::string>        src_files;
-	
-	~Shader () {
-		if (prog) glDeleteProgram(prog);
-		prog = 0;
-	}
-	
-	inline bool recompile (bool wireframe) {
-		Shader tmp;
+	inline constexpr GLenum SHADER_STAGE_GLENUM[] = {
+		GL_VERTEX_SHADER,
+		GL_FRAGMENT_SHADER,
+		GL_COMPUTE_SHADER,
+		GL_GEOMETRY_SHADER,
+	};
+	inline constexpr const char* SHADER_STAGE_NAME[] = {
+		"vertex",
+		"fragment",
+		"compute",
+		"geometry",
+	};
+	inline constexpr const char* SHADER_STAGE_MACRO[] = {
+		"_VERTEX",
+		"_FRAGMENT",
+		"_COMPUTE",
+		"_GEOMETRY",
+	};
 
-		bool success = compile_shader(tmp, name.c_str(), dbgname.c_str(), stages, macros, wireframe);
-		
-		if (success) {
-			// success, delete old shader
+	struct MacroDefinition {
+		std::string name;
+		std::string value;
+	};
+
+	struct Shader;
+	bool compile_shader (Shader& shad, const char* name, const char* dbgname,
+			std::vector<Stage> const& stages, std::vector<MacroDefinition> const& macros, bool wireframe);
+
+	struct Shader {
+		GLuint                          prog = 0;
+	
+		std::string                     name;
+		std::string                     dbgname;
+
+		std::vector<Stage>        stages;
+		std::vector<MacroDefinition>    macros;
+	
+		uniform_set                     uniforms;
+		std::vector<std::string>        src_files;
+	
+		~Shader () {
 			if (prog) glDeleteProgram(prog);
-			// replace with new shader
-			prog = tmp.prog;
-			tmp.prog = 0;
-
-			uniforms = std::move(tmp.uniforms);
-			src_files = std::move(tmp.src_files);
-			return true;
-		} else {
-			// fail, keep old shader
-			if (tmp.prog) glDeleteProgram(tmp.prog);
-			return false;
+			prog = 0;
 		}
+	
+		inline bool recompile (bool wireframe) {
+			Shader tmp;
 
-		return success;
-	}
-	
-	inline GLint get_uniform_location (std::string_view const& name) {
-		int i = indexof(uniforms, name, uniforms::_findUniform);
-		if (i < 0) return i;
-		return uniforms[i].location;
-	}
-	
-	template <typename T>
-	inline void set_uniform (std::string_view const& name, T const& val) {
-		int i = indexof(uniforms, name, uniforms::_findUniform);
-		if (i >= 0)
-			uniforms::_set_uniform(uniforms[i], val);
-	}
-	template <typename T>
-	inline void set_uniform_array (std::string_view const& name, T const* values, int arr_count) {
-		int i = indexof(uniforms, name, uniforms::_findUniform);
-		if (i >= 0)
-			uniforms::_set_uniform(uniforms[i], values, arr_count);
-	}
-};
-
-struct Shaders {
-	// Shaders are owned by global Shaders objects
-	// if users no longer use shader it still sticks around until the end of the program for simplicity
-	std::vector<std::unique_ptr<Shader>> shaders;
-
-	bool wireframe = false;
-	
-	inline void shutdown () {
-		shaders.clear();
-	}
-	
-	inline bool update_recompilation (ChangedFiles& changed_files) {
-		bool success = true;
+			bool success = compile_shader(tmp, name.c_str(), dbgname.c_str(), stages, macros, wireframe);
 		
-		if (changed_files.any()) {
-			for (auto& s : shaders) {
-				std::string const* changed_file;
-				if (changed_files.contains_any(s->src_files, FILE_ADDED|FILE_MODIFIED|FILE_RENAMED_NEW_NAME, &changed_file)) {
-					// any source file was changed
-					fprintf(stdout, "[Shaders] Recompile shader %-35s due to shader source change (%s)\n", s->name.c_str(), changed_file->c_str());
-					if (!s->recompile(wireframe))
-						success = false; // any failed shader signals reload fail
+			if (success) {
+				// success, delete old shader
+				if (prog) glDeleteProgram(prog);
+				// replace with new shader
+				prog = tmp.prog;
+				tmp.prog = 0;
+
+				uniforms = std::move(tmp.uniforms);
+				src_files = std::move(tmp.src_files);
+				return true;
+			} else {
+				// fail, keep old shader
+				if (tmp.prog) glDeleteProgram(tmp.prog);
+				return false;
+			}
+
+			return success;
+		}
+	
+		inline GLint get_uniform_location (std::string_view const& name) {
+			int i = indexof(uniforms, name, _findUniform);
+			if (i < 0) return i;
+			return uniforms[i].location;
+		}
+	
+		template <typename T>
+		inline void set_uniform (std::string_view const& name, T const& val) {
+			int i = indexof(uniforms, name, _findUniform);
+			if (i >= 0)
+				_set_uniform(uniforms[i], val);
+		}
+		template <typename T>
+		inline void set_uniform_array (std::string_view const& name, T const* values, int arr_count) {
+			int i = indexof(uniforms, name, _findUniform);
+			if (i >= 0)
+				_set_uniform(uniforms[i], values, arr_count);
+		}
+	};
+
+	struct Shaders {
+		// Shaders are owned by global Shaders objects
+		// if users no longer use shader it still sticks around until the end of the program for simplicity
+		std::vector<std::unique_ptr<Shader>> shaders;
+	
+		bool wireframe = false;
+		
+		inline void shutdown () {
+			shaders.clear();
+		}
+	
+		inline bool update_recompilation (ChangedFiles& changed_files) {
+			bool success = true;
+		
+			if (changed_files.any()) {
+				for (auto& s : shaders) {
+					std::string const* changed_file;
+					if (changed_files.contains_any(s->src_files, FILE_ADDED|FILE_MODIFIED|FILE_RENAMED_NEW_NAME, &changed_file)) {
+						// any source file was changed
+						fprintf(stdout, "[Shaders] Recompile shader %-35s due to shader source change (%s)\n", s->name.c_str(), changed_file->c_str());
+						if (!s->recompile(wireframe))
+							success = false; // any failed shader signals reload fail
+					}
 				}
 			}
-		}
-
-		return success;
-	}
-	inline bool set_wireframe (bool wireframe) {
-		bool success = true;
 		
-		if (this->wireframe != wireframe) {
-			this->wireframe = wireframe;
+			return success;
+		}
+		inline bool set_wireframe (bool wireframe) {
+			bool success = true;
+		
+			if (this->wireframe != wireframe) {
+				this->wireframe = wireframe;
 			
-			for (auto& s : shaders) {
-				fprintf(stdout, "[Shaders] Recompile shader %-35s due to wireframe toggle\n", s->name.c_str());
-				s->recompile(wireframe);
+				for (auto& s : shaders) {
+					fprintf(stdout, "[Shaders] Recompile shader %-35s due to wireframe toggle\n", s->name.c_str());
+					s->recompile(wireframe);
+				}
 			}
+		
+			return success;
 		}
-		
-		return success;
-	}
 	
-	inline Shader* compile (char const* name,
-			std::vector<MacroDefinition>&& macros = {},
-			std::initializer_list<ShaderStage> stages = { VERTEX_SHADER, FRAGMENT_SHADER },
-			char const* dbgname=nullptr) {
-		ZoneScoped;
+		inline Shader* compile (char const* name,
+				std::vector<MacroDefinition>&& macros = {},
+				std::initializer_list<Stage> stages = { VERTEX_SHADER, FRAGMENT_SHADER },
+				char const* dbgname=nullptr) {
+			ZoneScoped;
 		
-		auto s = std::make_unique<Shader>();
-		s->name = name;
-		s->dbgname = dbgname ? dbgname : name;
-		s->stages = stages;
-		s->macros = std::move(macros);
+			auto s = std::make_unique<Shader>();
+			s->name = name;
+			s->dbgname = dbgname ? dbgname : name;
+			s->stages = stages;
+			s->macros = std::move(macros);
 
-		bool success = compile_shader(*s, s->name.c_str(), s->dbgname.c_str(), s->stages, s->macros, wireframe);
+			bool success = compile_shader(*s, s->name.c_str(), s->dbgname.c_str(), s->stages, s->macros, wireframe);
 		
-		auto* ptr = s.get();
-		// remember shader regardless of compilation success to allow for shaders with errors
-		// to be fixed using update_recompilation()
-		shaders.push_back(std::move(s));
+			auto* ptr = s.get();
+			// remember shader regardless of compilation success to allow for shaders with errors
+			// to be fixed using update_recompilation()
+			shaders.push_back(std::move(s));
 		
-		return ptr;
-	}
-};
+			return ptr;
+		}
+	};
+}
+using shader::Shader;
+using shader::Stage;
 
-inline Shaders g_shaders;
+inline shader::Shaders g_shaders;
 
-// simple gl resource wrappers to avoid writing destructors manually all the time
+//
+//// simple gl resource wrappers to avoid writing destructors manually all the time
+//
 class Vbo {
 	GLuint vbo = 0;
 public:
@@ -512,21 +509,11 @@ public:
 	operator GLuint () const { return fbo; }
 };
 
-typedef struct {
-	uint32_t  count;
-	uint32_t  instanceCount;
-	uint32_t  first;
-	uint32_t  baseInstance;
-} glDrawArraysIndirectCommand;
+//
+//// VBO helper functions and classes
+//
 
-typedef struct {
-	uint32_t count;
-	uint32_t primCount;
-	uint32_t firstIndex;
-	uint32_t baseVertex;
-	uint32_t baseInstance;
-} glDrawElementsIndirectCommand;
-
+// upload data to buffer once via pointer
 inline void upload_buffer (GLenum target, GLuint buf, size_t size, void const* data, GLenum usage = GL_STATIC_DRAW) {
 	glBindBuffer(target, buf);
 
@@ -534,6 +521,7 @@ inline void upload_buffer (GLenum target, GLuint buf, size_t size, void const* d
 
 	glBindBuffer(target, 0);
 }
+// upload data to buffer via pointer in a streaming way (buffer orphaning)
 inline void stream_buffer (GLenum target, GLuint buf, size_t size, void const* data, GLenum usage = GL_STREAM_DRAW) {
 	glBindBuffer(target, buf);
 
@@ -544,6 +532,7 @@ inline void stream_buffer (GLenum target, GLuint buf, size_t size, void const* d
 	glBindBuffer(target, 0);
 }
 
+// Non-indexed (VAO + VBO) with uploading functions (vao configured externally)
 struct VertexBuffer {
 	Vao vao;
 	Vbo vbo;
@@ -563,6 +552,7 @@ struct VertexBuffer {
 		stream(vertices.data(), vertices.size());
 	}
 };
+// Indexed (VAO + VBO + EBO) with uploading functions (vao configured externally)
 struct VertexBufferI {
 	Vao vao;
 	Vbo vbo;
@@ -586,6 +576,7 @@ struct VertexBufferI {
 	}
 };
 
+// Non-indexed and instanced (VAO + mesh VBO + instances VBO) with uploading functions (vao configured externally)
 struct VertexBufferInstanced {
 	Vao vao;
 	Vbo vbo;
@@ -606,6 +597,7 @@ struct VertexBufferInstanced {
 		stream_instances(instance_data.data(), instance_data.size());
 	}
 };
+// Indexed and instanced (VAO + mesh VBO + mesh EBO + instances VBO) with uploading functions (vao configured externally)
 struct VertexBufferInstancedI {
 	Vao vao;
 	Vbo vbo;
@@ -629,369 +621,412 @@ struct VertexBufferInstancedI {
 	}
 };
 
-// put into Vertex struct
-#define ATTRIBUTES static void attrib (int idx, size_t base_offs=0)
+//// VAO Attribute creation helper using Generic Render VERTEX_CONFIG
+struct GLAttrib {
+	GLenum scalar_type; // what (scalar) type is the data in
+	int components;     // how many vector components (1-4)
+	bool int_in_shader; // should it be read as int in vertex shader? (can convert int data to float)
+	bool normalized;    // should int be normalized to 0.0-1.0 range? (when int data is read as float)
+};
+static constexpr inline GLAttrib ATTRIB_GL_TYPES[] = {
+	{ GL_FLOAT, 1, false, false },
+	{ GL_FLOAT, 2, false, false },
+	{ GL_FLOAT, 3, false, false },
+	{ GL_FLOAT, 4, false, false },
 
-#define ATTRIB(IDX, TYPE, COMPONENTS, STRUCT, NAME) do { \
-	auto _idx = IDX; \
-	glEnableVertexAttribArray(_idx); \
-	glVertexAttribPointer(_idx, COMPONENTS, TYPE, false, sizeof(STRUCT), (void*)(offsetof(STRUCT, NAME) + base_offs)); \
-} while (false)
-#define ATTRIBI(IDX, TYPE, COMPONENTS, STRUCT, NAME) do { \
-	auto _idx = IDX; \
-	glEnableVertexAttribArray(_idx); \
-	glVertexAttribIPointer(_idx, COMPONENTS, TYPE, sizeof(STRUCT), (void*)(offsetof(STRUCT, NAME) + base_offs)); \
-} while (false)
+	{ GL_INT, 1, true, false },
+	{ GL_INT, 2, true, false },
+	{ GL_INT, 3, true, false },
+	{ GL_INT, 4, true, false },
+};
+static constexpr inline int ATTRIB_TYPE_COMPONENTS[] = {
+	1, 2, 3, 4,
+	1, 2, 3, 4,
+};
 
-#define ATTRIB_INSTANCED(IDX, TYPE, COMPONENTS, STRUCT, NAME) do { \
-	auto _idx = IDX; \
-	glEnableVertexAttribArray(_idx); \
-	glVertexAttribDivisor(_idx, 1); \
-	glVertexAttribPointer(_idx, COMPONENTS, TYPE, false, sizeof(STRUCT), (void*)(offsetof(STRUCT, NAME) + base_offs)); \
-} while (false)
-#define ATTRIBI_INSTANCED(IDX, TYPE, COMPONENTS, STRUCT, NAME) do { \
-	auto _idx = IDX; \
-	glEnableVertexAttribArray(_idx); \
-	glVertexAttribDivisor(_idx, 1); \
-	glVertexAttribIPointer(_idx, COMPONENTS, TYPE, sizeof(STRUCT), (void*)(offsetof(STRUCT, NAME) + base_offs)); \
-} while (false)
+template <size_t N>
+inline int setup_vao_attribs (render::VertexAttributes<N> const& attribs, int idx, size_t base_offs=0) {
+	using namespace render;
 
-typedef void (*vertex_attrib_func)(int, size_t);
-/* Use like:
-	struct Vertex {
-		float3 pos;
-		float2 uv;
-		float4 col;
+	for (auto const& a : attribs.attribs) {
+		auto& gltype = ATTRIB_GL_TYPES[a.type];
 
-		ATTRIBUTES {
-			ATTRIB(GL_FLOAT, 3, Vertex, pos);
-			ATTRIB(GL_FLOAT, 2, Vertex, uv);
-			ATTRIB(GL_FLOAT, 4, Vertex, col);
+		glEnableVertexAttribArray(idx);
+		
+		if (attribs.instanced > 0) {
+			glVertexAttribDivisor(idx, attribs.instanced);
 		}
-	};
-*/
 
-inline void setup_vao (vertex_attrib_func vertex_attrib, GLuint vao, GLuint vbo, GLuint ebo=0, size_t vbo_base_offs=0) {
+		assert(a.stride > 0);
+		assert(gltype.components > 0 && gltype.components <= 4);
+
+		if (gltype.int_in_shader) {
+			glVertexAttribIPointer(idx, gltype.components, gltype.scalar_type,
+				a.stride, (void*)((size_t)a.offset + base_offs));
+		}
+		else {
+			glVertexAttribPointer(idx, gltype.components, gltype.scalar_type, gltype.normalized,
+				a.stride, (void*)((size_t)a.offset + base_offs));
+		}
+
+		idx++;
+	}
+
+	return idx;
+}
+
+// Create VAO from Vertex::_attribs and existing VBO and optional existing EBO (Generic Render VERTEX_CONFIG)
+// vbo_base_offs is offset from start of VBO memory (usually 0), useful for packing mixed vertex info into same VBO
+template <size_t N>
+inline void setup_vao (render::VertexAttributes<N> const& attribs, GLuint vao, GLuint vbo, GLuint ebo=0, size_t vbo_base_offs=0) {
 	glBindVertexArray(vao);
 	if (ebo) glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, ebo);
 
 	glBindBuffer(GL_ARRAY_BUFFER, vbo);
-	vertex_attrib(0, vbo_base_offs);
+	setup_vao_attribs(attribs, 0, vbo_base_offs);
 	glBindBuffer(GL_ARRAY_BUFFER, 0); // glVertexAttribPointer remembers VAO
 
 	glBindVertexArray(0);
 	if (ebo) glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, 0); // VAO remembers EBO (note that we need to unbind VAO first)
 }
 
+// Create Non-indexed VBO (with VAO) for this Vertex config
 template <typename VERTEX>
 inline VertexBuffer vertex_buffer (std::string_view label) {
 	VertexBuffer buf = {label};
-	setup_vao(VERTEX::attrib, buf.vao, buf.vbo, 0);
+	setup_vao(VERTEX::attribs(), buf.vao, buf.vbo, 0);
 	return buf;
 }
+// Create Indexed VBO (with EBO and VAO) for this Vertex config
 template <typename VERTEX>
 inline VertexBufferI vertex_bufferI (std::string_view label) {
 	VertexBufferI buf = {label};
-	setup_vao(VERTEX::attrib, buf.vao, buf.vbo, buf.ebo);
+	setup_vao(VERTEX::attribs(), buf.vao, buf.vbo, buf.ebo);
 	return buf;
 }
 
-/* 3 --- 2
-   |   / |
-   | /   |
-   0 --- 1 */
-static constexpr uint16_t QUAD_INDICES[6] = { 1,2,0, 0,2,3 };
+inline void _debug_vao (std::string msg="") {
 
-//// Opengl global state management
+	msg.append( " ... querying VAO state:\n" );
+	int vab, eabb, eabbs=0, mva, isOn = 1, vaabb;
+	
+	glGetIntegerv( GL_VERTEX_ARRAY_BINDING, &vab );
+	glGetIntegerv( GL_ELEMENT_ARRAY_BUFFER_BINDING, &eabb );
+	if (eabb)
+		glGetBufferParameteriv( GL_ELEMENT_ARRAY_BUFFER, GL_BUFFER_SIZE, &eabbs );
 
-enum DepthFunc {
-	DEPTH_INFRONT, // normal: draw infront (or equal depth) of other things
-	DEPTH_BEHIND, // inverted: draw behind other things
-};
-inline GLenum map_depth_func (DepthFunc func) {
-	switch (func) {
-		case DEPTH_INFRONT:	return GL_LEQUAL;
-		case DEPTH_BEHIND:	return GL_GEQUAL;
-		default: return 0;
+	msg.append( "  VAO: " + std::to_string( vab ) + "\n" );
+	msg.append( "  IBO: " + std::to_string( eabb ) + ", size=" + std::to_string( eabbs )  + "\n" );
+
+	glGetIntegerv( GL_MAX_VERTEX_ATTRIBS, &mva );
+	for (int i=0; i<mva; ++i) {
+		glGetVertexAttribiv( i, GL_VERTEX_ATTRIB_ARRAY_ENABLED, &isOn );
+		if (isOn) {
+			glGetVertexAttribiv( i, GL_VERTEX_ATTRIB_ARRAY_BUFFER_BINDING, &vaabb );
+			msg.append( "  attrib #" + std::to_string( i ) + ": VBO=" + std::to_string( vaabb ) + "\n" );
+		}
 	}
+	printf( msg.c_str() );
 }
-#if OGL_USE_REVERSE_DEPTH
-inline GLenum map_depth_func_reverse (DepthFunc func) {
-	switch (func) {
-		case DEPTH_INFRONT:	return GL_GEQUAL;
-		case DEPTH_BEHIND:	return GL_LEQUAL;
-		default: return 0;
+
+//
+//// Workaround to fix opengl global state
+//
+namespace state {
+	enum DepthFunc {
+		DEPTH_INFRONT, // normal: draw infront (or equal depth) of other things
+		DEPTH_BEHIND, // inverted: draw behind other things
+	};
+	inline GLenum map_depth_func (DepthFunc func) {
+		switch (func) {
+			case DEPTH_INFRONT:	return GL_LEQUAL;
+			case DEPTH_BEHIND:	return GL_GEQUAL;
+			default: return 0;
+		}
 	}
-}
-#endif
-
-enum CullFace {
-	CULL_BACK,
-	CULL_FRONT,
-};
-enum PrimitiveMode {
-	PRIM_TRIANGELS=0,
-	PRIM_LINES,
-};
-enum PolyMode {
-	POLY_FILL=0,
-	POLY_LINE,
-};
-
-struct BlendFunc {
-	GLenum equation = GL_FUNC_ADD;
-	GLenum sfactor = GL_SRC_ALPHA;
-	GLenum dfactor = GL_ONE_MINUS_SRC_ALPHA;
-};
-
-struct PipelineState {
-	bool depth_test = true;
-	bool depth_write = true;
-	DepthFunc depth_func = DEPTH_INFRONT;
-
-	bool scissor_test = false;
-
-	bool cull_face = true;
-	CullFace front_face = CULL_BACK;
-
-	bool blend_enable = false;
-	BlendFunc blend_func = BlendFunc();
-
-	PolyMode poly_mode = POLY_FILL;
-};
-struct StateManager {
-	PipelineState state;
-
-	// overrides
-	bool wireframe = false;
-	bool wireframe_no_cull = false;
-	bool wireframe_no_blend = false;
-
-	PipelineState _override (PipelineState const& s) {
-		PipelineState o = s;
-
-		if (wireframe) {
-			o.poly_mode = POLY_LINE;
-			if (wireframe_no_cull)  o.cull_face = false;
-			if (wireframe_no_blend) o.blend_enable = false;
+	#if OGL_USE_REVERSE_DEPTH
+	inline GLenum map_depth_func_reverse (DepthFunc func) {
+		switch (func) {
+			case DEPTH_INFRONT:	return GL_GEQUAL;
+			case DEPTH_BEHIND:	return GL_LEQUAL;
+			default: return 0;
 		}
-
-		return o;
 	}
-
-	void set_default () {
-		state = PipelineState();
-		state = _override(state);
-
-		glSetEnable(GL_DEPTH_TEST, state.depth_test);
-		// 
-		
-#if OGL_USE_REVERSE_DEPTH
-		if (reverse_depth) {
-			glDepthFunc(map_depth_func_reverse(state.depth_func));
-			glClearDepth(0.0f);
-			glDepthRange(0.0f, 1.0f); // do not flip like this, since precision will be bad, need to flip in projection matrix
-
-			glClipControl(GL_LOWER_LEFT, GL_ZERO_TO_ONE);
-		}
-		else {
-			glDepthFunc(map_depth_func(state.depth_func));
-			glClearDepth(1.0f);
-			glDepthRange(0.0f, 1.0f);
-
-			glClipControl(GL_LOWER_LEFT, GL_NEGATIVE_ONE_TO_ONE);
-		}
-#else
-		glDepthFunc(map_depth_func(state.depth_func));
-#endif
-		glDepthMask(state.depth_write ? GL_TRUE : GL_FALSE);
-
-		glSetEnable(GL_SCISSOR_TEST, state.scissor_test);
-
-		// culling
-		glSetEnable(GL_CULL_FACE, state.cull_face);
-		glCullFace(state.front_face == CULL_FRONT ? GL_FRONT : GL_BACK);
-		glFrontFace(GL_CCW);
-		// blending
-		glSetEnable(GL_BLEND, state.blend_enable);
-		glBlendEquation(state.blend_func.equation);
-		glBlendFunc(state.blend_func.sfactor, state.blend_func.dfactor);
-
-		glPolygonMode(GL_FRONT_AND_BACK, state.poly_mode == POLY_FILL ? GL_FILL : GL_LINE);
-
-		glBindFramebuffer(GL_FRAMEBUFFER, 0);
-	}
-
-	// set opengl drawing state to a set of values, where only changes are applied
-	// no overrides to not break fullscreen quads etc.
-	void set_no_override (PipelineState const& s) {
-	#if OGL_STATE_ASSERT
-		{
-			assert(state.depth_test == !!glIsEnabled(GL_DEPTH_TEST));
-			GLint depth_func;		glGetIntegerv(GL_DEPTH_FUNC, &depth_func);
-#if OGL_USE_REVERSE_DEPTH
-			assert((reverse_depth ? map_depth_func_reverse(state.depth_func) : map_depth_func(state.depth_func)) == depth_func);
-#else
-			assert(map_depth_func(state.depth_func) == depth_func);
-#endif
-			GLint depth_write;		glGetIntegerv(GL_DEPTH_WRITEMASK, &depth_write);
-			assert(state.depth_write == !!depth_write);
-		
-			assert(state.scissor_test == !!glIsEnabled(GL_SCISSOR_TEST));
-		
-			bool cull_face = !!glIsEnabled(GL_CULL_FACE);
-			assert(state.cull_face == cull_face);
-			GLint front_face;		glGetIntegerv(GL_CULL_FACE_MODE, &front_face);
-			assert((state.front_face == CULL_FRONT ? GL_FRONT : GL_BACK) == front_face);
-		
-			assert(state.blend_enable == !!glIsEnabled(GL_BLEND));
-			GLint blend_eq;		glGetIntegerv(GL_BLEND_EQUATION, &blend_eq);
-			assert(state.blend_func.equation == blend_eq);
-			GLint blend_rgbs, blend_rgbd, blend_as, blend_ad;
-			glGetIntegerv(GL_BLEND_SRC_RGB, &blend_rgbs);
-			glGetIntegerv(GL_BLEND_DST_RGB, &blend_rgbd);
-			glGetIntegerv(GL_BLEND_SRC_ALPHA, &blend_as);
-			glGetIntegerv(GL_BLEND_DST_ALPHA, &blend_ad);
-			assert(state.blend_func.sfactor == blend_rgbs && state.blend_func.sfactor == blend_as);
-			assert(state.blend_func.dfactor == blend_rgbd && state.blend_func.dfactor == blend_ad);
-		
-			// WARNING: glGetIntegerv(GL_POLYGON_MODE) returns two values  [0]: front facing [1]: back facing
-			GLint poly_mode[2] = {};		glGetIntegerv(GL_POLYGON_MODE, poly_mode);
-			assert((state.poly_mode == POLY_FILL ? GL_FILL : GL_LINE) == poly_mode[0]); //  && poly_mode[0] == poly_mode[1] works on AMD, does not on NV, does NV even return 2 values like AMD? why is opengl so broken?
-		}
 	#endif
 
-		if (state.depth_test != s.depth_test)
-			glSetEnable(GL_DEPTH_TEST, s.depth_test);
-		if (state.depth_func != s.depth_func) {
-#if OGL_USE_REVERSE_DEPTH
-			if (reverse_depth) glDepthFunc(map_depth_func_reverse(state.depth_func));
-			else               glDepthFunc(map_depth_func(state.depth_func));
-#else
-			glDepthFunc(map_depth_func(state.depth_func));
-#endif
-		}
-		if (state.depth_write != s.depth_write)
-			glDepthMask(s.depth_write ? GL_TRUE : GL_FALSE);
-
-		if (state.scissor_test != s.scissor_test)
-			glSetEnable(GL_SCISSOR_TEST, s.scissor_test);
-
-		if (state.cull_face != s.cull_face)
-			glSetEnable(GL_CULL_FACE, s.cull_face);
-		if (state.front_face != s.front_face)
-			glCullFace(s.front_face == CULL_FRONT ? GL_FRONT : GL_BACK);
-
-		// blending
-		if (state.blend_enable != s.blend_enable)
-			glSetEnable(GL_BLEND, s.blend_enable);
-		if (state.blend_func.equation != s.blend_func.equation)
-			glBlendEquation(s.blend_func.equation);
-		if (state.blend_func.sfactor != s.blend_func.sfactor || state.blend_func.dfactor != s.blend_func.dfactor)
-			glBlendFunc(s.blend_func.sfactor, s.blend_func.dfactor);
-
-		if (state.poly_mode != s.poly_mode)
-			glPolygonMode(GL_FRONT_AND_BACK, s.poly_mode == POLY_FILL ? GL_FILL : GL_LINE);
-
-		state = s;
-	}
-
-	// set opengl drawing state to a set of values, where only changes are applied
-	// override for wireframe etc. are applied to these
-	void set (PipelineState const& s) {
-		auto o = _override(s);
-		set_no_override(o);
-	}
-
-	
-	// assume every temporarily bound texture is unbound again
-	// (by other texture uploading code etc.)
-
-	std::vector<GLenum> bound_texture_types;
-
-	struct TextureBind {
-		struct _Texture {
-			GLenum type;
-			GLuint tex;
-
-			_Texture (GLenum type, GLuint tex): type{type}, tex{tex} {}
-
-			_Texture (): type{0}, tex{0} {}
-			_Texture (Texture1D      const& tex): type{ GL_TEXTURE_1D       }, tex{tex} {}
-			_Texture (Texture1DArray const& tex): type{ GL_TEXTURE_1D_ARRAY }, tex{tex} {}
-			_Texture (Texture2D      const& tex): type{ GL_TEXTURE_2D       }, tex{tex} {}
-			_Texture (Texture3D      const& tex): type{ GL_TEXTURE_3D       }, tex{tex} {}
-			_Texture (Texture2DArray const& tex): type{ GL_TEXTURE_2D_ARRAY }, tex{tex} {}
-		};
-		std::string_view	uniform_name;
-		_Texture			tex;
-		GLuint				sampler;
-
-		TextureBind (): uniform_name{}, tex{} {} // null -> empty texture unit
-
-		// allow no null sampler
-		TextureBind (std::string_view uniform_name, _Texture const& tex)
-			: uniform_name{uniform_name}, tex{tex}, sampler{0} {}
-		TextureBind (std::string_view uniform_name, _Texture const& tex, Sampler const& sampl)
-			: uniform_name{uniform_name}, tex{tex}, sampler{sampl} {}
+	enum CullFace {
+		CULL_BACK,
+		CULL_FRONT,
+	};
+	enum PrimitiveMode {
+		PRIM_TRIANGELS=0,
+		PRIM_LINES,
+	};
+	enum PolyMode {
+		POLY_FILL=0,
+		POLY_LINE,
 	};
 
-	// bind a set of textures into texture units
-	// and assign them to shader uniform samplers
-	void bind_textures (Shader* shad, TextureBind const* textures, size_t count) {
-		bound_texture_types.resize(std::max(bound_texture_types.size(), count));
+	struct BlendFunc {
+		GLenum equation = GL_FUNC_ADD;
+		GLenum sfactor = GL_SRC_ALPHA;
+		GLenum dfactor = GL_ONE_MINUS_SRC_ALPHA;
+	};
 
-		for (int i=0; i<(int)count; ++i) {
-			auto& to_bind = textures[i];
-			auto& bound_type = bound_texture_types[i];
+	struct PipelineState {
+		bool depth_test = true;
+		bool depth_write = true;
+		DepthFunc depth_func = DEPTH_INFRONT;
+
+		bool scissor_test = false;
+
+		bool cull_face = true;
+		CullFace front_face = CULL_BACK;
+
+		bool blend_enable = false;
+		BlendFunc blend_func = BlendFunc();
+
+		PolyMode poly_mode = POLY_FILL;
+	};
+	struct StateManager {
+		PipelineState state;
+
+		// overrides
+		bool wireframe = false;
+		bool wireframe_no_cull = false;
+		bool wireframe_no_blend = false;
+
+		PipelineState _override (PipelineState const& s) {
+			PipelineState o = s;
+
+			if (wireframe) {
+				o.poly_mode = POLY_LINE;
+				if (wireframe_no_cull)  o.cull_face = false;
+				if (wireframe_no_blend) o.blend_enable = false;
+			}
+
+			return o;
+		}
+
+		void set_default () {
+			auto s = _override( PipelineState() );
+
+			glSetEnable(GL_DEPTH_TEST, s.depth_test);
+			// 
+		
+	#if OGL_USE_REVERSE_DEPTH
+			if (reverse_depth) {
+				glDepthFunc(map_depth_func_reverse(s.depth_func));
+				glClearDepth(0.0f);
+				glDepthRange(0.0f, 1.0f); // do not flip like this, since precision will be bad, need to flip in projection matrix
+
+				glClipControl(GL_LOWER_LEFT, GL_ZERO_TO_ONE);
+			}
+			else {
+				glDepthFunc(map_depth_func(s.depth_func));
+				glClearDepth(1.0f);
+				glDepthRange(0.0f, 1.0f);
+
+				glClipControl(GL_LOWER_LEFT, GL_NEGATIVE_ONE_TO_ONE);
+			}
+	#else
+			glDepthFunc(map_depth_func(s.depth_func));
+	#endif
+			glDepthMask(s.depth_write ? GL_TRUE : GL_FALSE);
+
+			glSetEnable(GL_SCISSOR_TEST, s.scissor_test);
+
+			// culling
+			glSetEnable(GL_CULL_FACE, s.cull_face);
+			glCullFace(s.front_face == CULL_FRONT ? GL_FRONT : GL_BACK);
+			glFrontFace(GL_CCW);
+			// blending
+			glSetEnable(GL_BLEND, s.blend_enable);
+			glBlendEquation(s.blend_func.equation);
+			glBlendFunc(s.blend_func.sfactor, s.blend_func.dfactor);
+
+			glPolygonMode(GL_FRONT_AND_BACK, s.poly_mode == POLY_FILL ? GL_FILL : GL_LINE);
+
+			glBindFramebuffer(GL_FRAMEBUFFER, 0);
+
+			state = s;
+		}
+
+		// set opengl drawing state to a set of values, where only changes are applied
+		// no overrides to not break fullscreen quads etc.
+		void set_no_override (PipelineState const& s) {
+		#if OGL_STATE_ASSERT
+			{
+				assert(state.depth_test == !!glIsEnabled(GL_DEPTH_TEST));
+				GLint depth_func;		glGetIntegerv(GL_DEPTH_FUNC, &depth_func);
+	#if OGL_USE_REVERSE_DEPTH
+				assert((reverse_depth ? map_depth_func_reverse(state.depth_func) : map_depth_func(state.depth_func)) == depth_func);
+	#else
+				assert(map_depth_func(state.depth_func) == depth_func);
+	#endif
+				GLint depth_write;		glGetIntegerv(GL_DEPTH_WRITEMASK, &depth_write);
+				assert(state.depth_write == !!depth_write);
+		
+				assert(state.scissor_test == !!glIsEnabled(GL_SCISSOR_TEST));
+		
+				bool cull_face = !!glIsEnabled(GL_CULL_FACE);
+				assert(state.cull_face == cull_face);
+				GLint front_face;		glGetIntegerv(GL_CULL_FACE_MODE, &front_face);
+				assert((state.front_face == CULL_FRONT ? GL_FRONT : GL_BACK) == front_face);
+		
+				assert(state.blend_enable == !!glIsEnabled(GL_BLEND));
+				GLint blend_eq;		glGetIntegerv(GL_BLEND_EQUATION, &blend_eq);
+				assert(state.blend_func.equation == blend_eq);
+				GLint blend_rgbs, blend_rgbd, blend_as, blend_ad;
+				glGetIntegerv(GL_BLEND_SRC_RGB, &blend_rgbs);
+				glGetIntegerv(GL_BLEND_DST_RGB, &blend_rgbd);
+				glGetIntegerv(GL_BLEND_SRC_ALPHA, &blend_as);
+				glGetIntegerv(GL_BLEND_DST_ALPHA, &blend_ad);
+				assert(state.blend_func.sfactor == blend_rgbs && state.blend_func.sfactor == blend_as);
+				assert(state.blend_func.dfactor == blend_rgbd && state.blend_func.dfactor == blend_ad);
+		
+				// WARNING: glGetIntegerv(GL_POLYGON_MODE) returns two values  [0]: front facing [1]: back facing
+				GLint poly_mode[2] = {};		glGetIntegerv(GL_POLYGON_MODE, poly_mode);
+				assert((state.poly_mode == POLY_FILL ? GL_FILL : GL_LINE) == poly_mode[0]); //  && poly_mode[0] == poly_mode[1] works on AMD, does not on NV, does NV even return 2 values like AMD? why is opengl so broken?
+			}
+		#endif
+
+			if (state.depth_test != s.depth_test)
+				glSetEnable(GL_DEPTH_TEST, s.depth_test);
+			if (state.depth_func != s.depth_func) {
+	#if OGL_USE_REVERSE_DEPTH
+				if (reverse_depth) glDepthFunc(map_depth_func_reverse(state.depth_func));
+				else               glDepthFunc(map_depth_func(state.depth_func));
+	#else
+				glDepthFunc(map_depth_func(state.depth_func));
+	#endif
+			}
+			if (state.depth_write != s.depth_write)
+				glDepthMask(s.depth_write ? GL_TRUE : GL_FALSE);
+
+			if (state.scissor_test != s.scissor_test)
+				glSetEnable(GL_SCISSOR_TEST, s.scissor_test);
+
+			if (state.cull_face != s.cull_face)
+				glSetEnable(GL_CULL_FACE, s.cull_face);
+			if (state.front_face != s.front_face)
+				glCullFace(s.front_face == CULL_FRONT ? GL_FRONT : GL_BACK);
+
+			// blending
+			if (state.blend_enable != s.blend_enable)
+				glSetEnable(GL_BLEND, s.blend_enable);
+			if (state.blend_func.equation != s.blend_func.equation)
+				glBlendEquation(s.blend_func.equation);
+			if (state.blend_func.sfactor != s.blend_func.sfactor || state.blend_func.dfactor != s.blend_func.dfactor)
+				glBlendFunc(s.blend_func.sfactor, s.blend_func.dfactor);
+
+			if (state.poly_mode != s.poly_mode)
+				glPolygonMode(GL_FRONT_AND_BACK, s.poly_mode == POLY_FILL ? GL_FILL : GL_LINE);
+
+			state = s;
+		}
+
+		// set opengl drawing state to a set of values, where only changes are applied
+		// override for wireframe etc. are applied to these
+		void set (PipelineState const& s) {
+			auto o = _override(s);
+			set_no_override(o);
+		}
+
+	
+		// assume every temporarily bound texture is unbound again
+		// (by other texture uploading code etc.)
+
+		std::vector<GLenum> bound_texture_types;
+
+		struct TextureBind {
+			struct _Texture {
+				GLenum type;
+				GLuint tex;
+
+				_Texture (GLenum type, GLuint tex): type{type}, tex{tex} {}
+
+				_Texture (): type{0}, tex{0} {}
+				_Texture (Texture1D      const& tex): type{ GL_TEXTURE_1D       }, tex{tex} {}
+				_Texture (Texture1DArray const& tex): type{ GL_TEXTURE_1D_ARRAY }, tex{tex} {}
+				_Texture (Texture2D      const& tex): type{ GL_TEXTURE_2D       }, tex{tex} {}
+				_Texture (Texture3D      const& tex): type{ GL_TEXTURE_3D       }, tex{tex} {}
+				_Texture (Texture2DArray const& tex): type{ GL_TEXTURE_2D_ARRAY }, tex{tex} {}
+			};
+			std::string_view	uniform_name;
+			_Texture			tex;
+			GLuint				sampler;
+
+			TextureBind (): uniform_name{}, tex{} {} // null -> empty texture unit
+
+			// allow no null sampler
+			TextureBind (std::string_view uniform_name, _Texture const& tex)
+				: uniform_name{uniform_name}, tex{tex}, sampler{0} {}
+			TextureBind (std::string_view uniform_name, _Texture const& tex, Sampler const& sampl)
+				: uniform_name{uniform_name}, tex{tex}, sampler{sampl} {}
+		};
+
+		// bind a set of textures into texture units
+		// and assign them to shader uniform samplers
+		void bind_textures (Shader* shad, TextureBind const* textures, size_t count) {
+			bound_texture_types.resize(std::max(bound_texture_types.size(), count));
+
+			for (int i=0; i<(int)count; ++i) {
+				auto& to_bind = textures[i];
+				auto& bound_type = bound_texture_types[i];
 			
-			glActiveTexture((GLenum)(GL_TEXTURE0 + i));
+				glActiveTexture((GLenum)(GL_TEXTURE0 + i));
 
-			// can have multiple textures of differing types bound in the same texture unit
-			// this is super confusing in the graphics debugger, unbind if previous texture is a different type
-			// (otherwise we overwrite it anyway, this just saves one gl call)
-			if (to_bind.tex.type != bound_type && bound_type != 0) {
-				glBindTexture(bound_type, 0); // unbind previous
-				glBindSampler((GLuint)i, 0);
+				// can have multiple textures of differing types bound in the same texture unit
+				// this is super confusing in the graphics debugger, unbind if previous texture is a different type
+				// (otherwise we overwrite it anyway, this just saves one gl call)
+				if (to_bind.tex.type != bound_type && bound_type != 0) {
+					glBindTexture(bound_type, 0); // unbind previous
+					glBindSampler((GLuint)i, 0);
+				}
+
+				// overwrite previous texture binding
+				// could try to optimize this by detecting when rebinding same texture,
+				// but at that point should just avoid calling this and do it manually keep it bound instead
+				if (to_bind.tex.type != 0) {
+					glBindSampler((GLuint)i, to_bind.sampler);
+
+					glBindTexture(to_bind.tex.type, to_bind.tex.tex); // bind new
+
+					auto loc = shad->get_uniform_location(to_bind.uniform_name);
+					if (loc >= 0)
+						glUniform1i(loc, (GLint)i);
+				}
+
+				bound_type = to_bind.tex.type;
 			}
 
-			// overwrite previous texture binding
-			// could try to optimize this by detecting when rebinding same texture,
-			// but at that point should just avoid calling this and do it manually keep it bound instead
-			if (to_bind.tex.type != 0) {
-				glBindSampler((GLuint)i, to_bind.sampler);
+			// unbind rest of texture units
+			for (int i=(int)count; i<(int)bound_texture_types.size(); ++i) {
+				auto& bound_type = bound_texture_types[i];
 
-				glBindTexture(to_bind.tex.type, to_bind.tex.tex); // bind new
-
-				auto loc = shad->get_uniform_location(to_bind.uniform_name);
-				if (loc >= 0)
-					glUniform1i(loc, (GLint)i);
+				glActiveTexture((GLenum)(GL_TEXTURE0 + i));
+				if (bound_type != 0) {
+					// unbind previous
+					glBindSampler((GLuint)i, 0);
+					glBindTexture(bound_type, 0);
+					bound_type = 0;
+				}
 			}
-
-			bound_type = to_bind.tex.type;
 		}
-
-		// unbind rest of texture units
-		for (int i=(int)count; i<(int)bound_texture_types.size(); ++i) {
-			auto& bound_type = bound_texture_types[i];
-
-			glActiveTexture((GLenum)(GL_TEXTURE0 + i));
-			if (bound_type != 0) {
-				// unbind previous
-				glBindSampler((GLuint)i, 0);
-				glBindTexture(bound_type, 0);
-				bound_type = 0;
-			}
+		void bind_textures (Shader* shad, std::initializer_list<TextureBind> textures) {
+			bind_textures(shad, textures.begin(), textures.size());
 		}
-	}
-	void bind_textures (Shader* shad, std::initializer_list<TextureBind> textures) {
-		bind_textures(shad, textures.begin(), textures.size());
-	}
-	void bind_textures (Shader* shad, std::vector<TextureBind> const& textures) {
-		bind_textures(shad, textures.data(), textures.size());
-	}
-};
+		void bind_textures (Shader* shad, std::vector<TextureBind> const& textures) {
+			bind_textures(shad, textures.data(), textures.size());
+		}
+	};
+}
+using namespace state;
 
+//
+//// Texture handling
+//
 enum TexFilterMode {
 	FILTER_MIPMAPPED = 0,
 	FILTER_NEAREST,
@@ -1025,160 +1060,6 @@ inline Sampler sampler (std::string_view label, TexFilterMode filter, GLenum wra
 
 	return sampler;
 }
-
-#if 0
-// Needs to be here so that setup_shader_ubo can be used by the Shader manager
-struct CommonUniforms {
-	static constexpr int UBO_BINDING = 0;
-
-	Ubo ubo = {"common_ubo"};
-
-	struct Common {
-		View3D view;
-	};
-
-	void set (View3D const& view) {
-		Common common = {};
-		common.view = view;
-		stream_buffer(GL_UNIFORM_BUFFER, ubo, sizeof(common), &common, GL_STREAM_DRAW);
-
-		glBindBuffer(GL_UNIFORM_BUFFER, ubo);
-		glBindBufferBase(GL_UNIFORM_BUFFER, UBO_BINDING, ubo);
-		glBindBuffer(GL_UNIFORM_BUFFER, 0);
-	}
-
-	// only needed in gl <4.2 since  layout(binding = 0) uniform Common  syntex is not available
-	static void setup_shader_ubo (GLuint prog) {
-		GLuint block_idx = glGetUniformBlockIndex(prog, "Common");
-		if (block_idx != GL_INVALID_INDEX)
-			glUniformBlockBinding(prog, block_idx, UBO_BINDING);
-	}
-};
-#endif
-
-inline void _debug_vao (std::string msg="") {
-
-	msg.append( " ... querying VAO state:\n" );
-	int vab, eabb, eabbs=0, mva, isOn = 1, vaabb;
-	
-	glGetIntegerv( GL_VERTEX_ARRAY_BINDING, &vab );
-	glGetIntegerv( GL_ELEMENT_ARRAY_BUFFER_BINDING, &eabb );
-	if (eabb)
-		glGetBufferParameteriv( GL_ELEMENT_ARRAY_BUFFER, GL_BUFFER_SIZE, &eabbs );
-
-	msg.append( "  VAO: " + std::to_string( vab ) + "\n" );
-	msg.append( "  IBO: " + std::to_string( eabb ) + ", size=" + std::to_string( eabbs )  + "\n" );
-
-	glGetIntegerv( GL_MAX_VERTEX_ATTRIBS, &mva );
-	for (int i=0; i<mva; ++i) {
-		glGetVertexAttribiv( i, GL_VERTEX_ATTRIB_ARRAY_ENABLED, &isOn );
-		if (isOn) {
-			glGetVertexAttribiv( i, GL_VERTEX_ATTRIB_ARRAY_BUFFER_BINDING, &vaabb );
-			msg.append( "  attrib #" + std::to_string( i ) + ": VBO=" + std::to_string( vaabb ) + "\n" );
-		}
-	}
-	printf( msg.c_str() );
-}
-
-struct ShapeRenderer {
-	Shader* shad;
-
-	ShapeRenderer (const char* shad_name) {
-		shad = g_shaders.compile(shad_name);
-
-		upload_buffer(GL_ARRAY_BUFFER        , vbo.vbo, (GLsizeiptr)sizeof(VERTICES),     VERTICES,     GL_STATIC_DRAW);
-		upload_buffer(GL_ELEMENT_ARRAY_BUFFER, vbo.ebo, (GLsizeiptr)sizeof(QUAD_INDICES), QUAD_INDICES, GL_STATIC_DRAW);
-	}
-
-	struct Vertex {
-		float2 mesh_pos;
-	};
-	struct Instance {
-		float3 inst_pos;
-		float  inst_size; // in pixels
-		float4 inst_col;
-	};
-
-	static inline constexpr Vertex VERTICES[4] = {
-		{{ -0.5f, -0.5f }},
-		{{ +0.5f, -0.5f }},
-		{{ +0.5f, +0.5f }},
-		{{ -0.5f, +0.5f }},
-	};
-
-	VertexBufferInstancedI make_instanced_vbo () {
-		VertexBufferInstancedI buf = {"ShapeRenderer"};
-
-		glBindVertexArray(buf.vao);
-		glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, buf.ebo);
-		
-		glBindBuffer(GL_ARRAY_BUFFER, buf.vbo);
-		{
-			glEnableVertexAttribArray(0);
-			glVertexAttribPointer(0, 2, GL_FLOAT, false, sizeof(Vertex), (void*)offsetof(Vertex, mesh_pos));
-		}
-
-		glBindBuffer(GL_ARRAY_BUFFER, buf.instances);
-		{
-			glEnableVertexAttribArray(1);
-			glVertexAttribDivisor(1, 1);
-			glVertexAttribPointer(1, 3, GL_FLOAT, false, sizeof(Instance), (void*)offsetof(Instance, inst_pos));
-
-			glEnableVertexAttribArray(2);
-			glVertexAttribDivisor(2, 1);
-			glVertexAttribPointer(2, 1, GL_FLOAT, false, sizeof(Instance), (void*)offsetof(Instance, inst_size));
-
-			glEnableVertexAttribArray(3);
-			glVertexAttribDivisor(3, 1);
-			glVertexAttribPointer(3, 4, GL_FLOAT, false, sizeof(Instance), (void*)offsetof(Instance, inst_col));
-		}
-		glBindBuffer(GL_ARRAY_BUFFER, 0);
-
-		glBindVertexArray(0);
-		glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, 0);
-		
-		return buf;
-	}
-
-	VertexBufferInstancedI vbo = make_instanced_vbo();
-
-	std::vector<Instance> instances;
-
-	void begin () {
-		instances.clear();
-	}
-
-	int draw (float3 const& a, float size, float4 const& col) {
-		auto* i = push_back(instances, 1);
-
-		i->inst_pos  = a;
-		i->inst_size = size;
-		i->inst_col  = col;
-
-		return 1;
-	}
-
-	void upload_vertices () {
-		vbo.stream_instances(instances);
-	}
-
-	void render (StateManager& state) {
-		if (instances.empty()) return;
-
-		OGL_TRACE("ShapeRenderer");
-		ZoneScoped;
-
-		glUseProgram(shad->prog);
-
-		PipelineState s;
-		s.depth_test = false;
-		s.blend_enable = true;
-		state.set(s);
-
-		glBindVertexArray(vbo.vao);
-		glDrawElementsInstanced(GL_TRIANGLES, ARRLEN(QUAD_INDICES), GL_UNSIGNED_SHORT, (void*)0, (GLsizei)instances.size());
-	}
-};
 
 inline int calc_mipmaps (int w, int h) {
 	int count = 0;
@@ -1242,44 +1123,35 @@ inline Texture2D texture2D (std::string_view label, const char* filepath, bool m
 	return tex;
 }
 
-struct RenderScale {
-	SERIALIZE(RenderScale, renderscale, MSAA, nearest)
+#if 0
+// Needs to be here so that setup_shader_ubo can be used by the Shader manager
+struct CommonUniforms {
+	static constexpr int UBO_BINDING = 0;
 
-	int2 size = -1;
-	float renderscale = 1.0f;
+	Ubo ubo = {"common_ubo"};
 
-	int MSAA = 1;
+	struct Common {
+		View3D view;
+	};
 
-	//bool depth_float32 = false; // false: f16 true: f32
+	void set (View3D const& view) {
+		Common common = {};
+		common.view = view;
+		stream_buffer(GL_UNIFORM_BUFFER, ubo, sizeof(common), &common, GL_STREAM_DRAW);
 
-	bool nearest = false;
-
-	bool changed = false;
-	
-	void imgui () {
-		if (ImGui::TreeNode("RenderScale")) {
-
-			ImGui::Text("res: %4d x %4d px (%5.2f Mpx)", size.x, size.y, (float)(size.x * size.y) / (1000*1000));
-			changed = ImGui::SliderFloat("renderscale", &renderscale, 0.02f, 2.0f);
-
-			//changed = ImGui::Checkbox("depth_float32", &depth_float32) || changed;
-			changed = ImGui::Checkbox("nearest", &nearest) || changed;
-
-			changed = ImGui::SliderInt("MSAA", &MSAA, 1, 16) || changed;
-
-			ImGui::TreePop();
-		}
+		glBindBuffer(GL_UNIFORM_BUFFER, ubo);
+		glBindBufferBase(GL_UNIFORM_BUFFER, UBO_BINDING, ubo);
+		glBindBuffer(GL_UNIFORM_BUFFER, 0);
 	}
 
-	bool update (int2 output_size) {
-		auto old_size = size;
-		size = max(1, roundi((float2)output_size * renderscale));
-
-		bool upd = old_size != size || changed;
-		changed = false;
-		return upd;
+	// only needed in gl <4.2 since  layout(binding = 0) uniform Common  syntex is not available
+	static void setup_shader_ubo (GLuint prog) {
+		GLuint block_idx = glGetUniformBlockIndex(prog, "Common");
+		if (block_idx != GL_INVALID_INDEX)
+			glUniformBlockBinding(prog, block_idx, UBO_BINDING);
 	}
 };
+#endif
 
 struct Renderbuffer {
 	MOVE_ONLY_CLASS(Renderbuffer); // No move implemented for now
@@ -1362,14 +1234,10 @@ struct FramebufferTexture {
 	Renderbuffer fbo_MSAA = {}; // msaa>1 ?   MSAA textures : normal textures
 	Renderbuffer fbo      = {}; // msaa>1 ? normal textures : 0
 	
-	RenderScale renderscale;
-	
+	render::RenderScale renderscale;
+
 	Sampler fbo_sampler         = sampler("fbo_sampler", FILTER_MIPMAPPED, GL_CLAMP_TO_EDGE);
 	Sampler fbo_sampler_nearest = sampler("fbo_sampler_nearest", FILTER_NEAREST, GL_CLAMP_TO_EDGE);
-	
-	void imgui () {
-		renderscale.imgui();
-	}
 	
 	static constexpr GLenum color_format = GL_R11F_G11F_B10F;// GL_RGBA16F GL_RGBA32F GL_SRGB8_ALPHA8
 	static constexpr GLenum color_format_resolve = GL_SRGB8_ALPHA8;
@@ -1457,4 +1325,3 @@ struct FramebufferTexture {
 void take_screenshot (int2 size);
 
 } // namespace ogl
-using ogl::g_shaders;

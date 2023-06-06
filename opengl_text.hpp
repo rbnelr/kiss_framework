@@ -1,7 +1,6 @@
 #pragma once
 #include "common.hpp"
 #include "opengl.hpp"
-#include "camera.hpp"
 
 #include "kisslib/stb_rect_pack.hpp"
 #include "kisslib/stb_truetype.hpp"
@@ -98,13 +97,13 @@ struct TextRenderer {
 // Opengl objects
 	Shader* shad;
 	Texture2D atlas_tex = {"TextRenderer::atlas_tex"};
-	
+
 	struct GlyphQuad {
 		float2 pos;
 
-		ATTRIBUTES {
-			ATTRIB(idx++, GL_FLOAT, 2, GlyphQuad, pos);
-		}
+		VERTEX_CONFIG(
+			ATTRIB(FLT2, GlyphQuad, pos),
+		)
 	};
 	static constexpr GlyphQuad GLYPH_QUAD[4] = {
 		{{ 0,1 }},
@@ -117,6 +116,12 @@ struct TextRenderer {
 		float4 px_rect; // (x0,y0, x1,y1)  in screen pixels, top-down y axis
 		float4 uv_rect; // (x0,y0, x1,y1)
 		float4 text_col;
+		
+		VERTEX_CONFIG_INSTANCED(
+			ATTRIB(FLT4, GlyphInstance, px_rect),
+			ATTRIB(FLT4, GlyphInstance, uv_rect),
+			ATTRIB(FLT4, GlyphInstance, text_col),
+		)
 	};
 
 	static VertexBufferInstancedI create_vbo () {
@@ -126,32 +131,18 @@ struct TextRenderer {
 		glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, buf.ebo);
 
 		glBindBuffer(GL_ARRAY_BUFFER, buf.vbo);
-		GlyphQuad::attrib(0);
+		setup_vao_attribs(GlyphQuad::attribs(), 0, 0);
 		glBindBuffer(GL_ARRAY_BUFFER, 0);
 
-		{
-			glBindBuffer(GL_ARRAY_BUFFER, buf.instances);
-
-			glEnableVertexAttribArray(1);
-			glVertexAttribDivisor(1, 1);
-			glVertexAttribPointer(1, 4, GL_FLOAT, GL_FALSE, (GLsizei)sizeof(GlyphInstance), (void*)offsetof(GlyphInstance, px_rect));
-
-			glEnableVertexAttribArray(2);
-			glVertexAttribDivisor(2, 1);
-			glVertexAttribPointer(2, 4, GL_FLOAT, GL_FALSE, (GLsizei)sizeof(GlyphInstance), (void*)offsetof(GlyphInstance, uv_rect));
-
-			glEnableVertexAttribArray(3);
-			glVertexAttribDivisor(3, 1);
-			glVertexAttribPointer(3, 4, GL_FLOAT, GL_FALSE, (GLsizei)sizeof(GlyphInstance), (void*)offsetof(GlyphInstance, text_col));
-
-			glBindBuffer(GL_ARRAY_BUFFER, 0);
-		}
+		glBindBuffer(GL_ARRAY_BUFFER, buf.instances);
+		setup_vao_attribs(GlyphQuad::attribs(), 1, offsetof(GlyphInstance, px_rect));
+		glBindBuffer(GL_ARRAY_BUFFER, 0);
 
 		glBindVertexArray(0);
 		glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, 0);
 
 		upload_buffer(GL_ARRAY_BUFFER        , buf.vbo, sizeof(GLYPH_QUAD), GLYPH_QUAD);
-		upload_buffer(GL_ELEMENT_ARRAY_BUFFER, buf.ebo, sizeof(QUAD_INDICES), QUAD_INDICES);
+		upload_buffer(GL_ELEMENT_ARRAY_BUFFER, buf.ebo, sizeof(render::shapes::QUAD_INDICES), render::shapes::QUAD_INDICES);
 
 		return buf;
 	}
@@ -176,7 +167,7 @@ struct TextRenderer {
 
 		if (changed)
 			generate();
-
+		
 		ImGui::TreePop();
 	}
 

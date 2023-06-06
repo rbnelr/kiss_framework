@@ -99,8 +99,8 @@ namespace kiss {
 		void* os_data = nullptr;
 
 	public:
-		void init (std::string_view directory_path, bool watch_subdirs=true);
-		void shutdown ();
+		DirectoyChangeNotifier (std::string_view directory_path, bool watch_subdirs=true);
+		~DirectoyChangeNotifier ();
 
 		// 
 		ChangedFiles poll_changes ();

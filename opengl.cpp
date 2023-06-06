@@ -1,3 +1,4 @@
+#include "common.hpp" // for PCH
 #include "opengl.hpp"
 #include "kisslib/strparse.hpp"
 
@@ -6,7 +7,7 @@
 namespace ogl {
 
 void APIENTRY debug_callback (GLenum source, GLenum type, GLuint id, GLenum severity, GLsizei length, const char* message, void const* userParam) {
-	//Window* r = (Window*)userParam;
+	//Engine* eng = (Engine*)userParam;
 	
 	//if (source == GL_DEBUG_SOURCE_SHADER_COMPILER_ARB) return;
 	if (source == GL_DEBUG_SOURCE_APPLICATION_ARB) {
@@ -117,306 +118,306 @@ GLuint Shader::compile_shader (const char* name, const char* vertex, const char*
 }
 */
 
+namespace shader {
+	bool preprocess_include_file (char const* shader_name, char const* filename, std::string* result, std::vector<std::string>* src_files) {
+		using namespace parse;
 
-
-bool preprocess_include_file (char const* shader_name, char const* filename, std::string* result, std::vector<std::string>* src_files) {
-	using namespace parse;
-
-	int fileidx = indexof(*src_files, std::string_view(filename));
-	if (fileidx < 0) {
-		fileidx = (int)src_files->size();
-		src_files->push_back(filename);
-	}
+		int fileidx = indexof(*src_files, std::string_view(filename));
+		if (fileidx < 0) {
+			fileidx = (int)src_files->size();
+			src_files->push_back(filename);
+		}
 	
-	if (!result->empty()) { // not allowed to come before #version macro
-		//prints(result, "#line 1 \"%s\"\n", filename); // only works on nvidia
-		prints(result, "#line 1 %d\n", fileidx);
-	}
+		if (!result->empty()) { // not allowed to come before #version macro
+			//prints(result, "#line 1 \"%s\"\n", filename); // only works on nvidia
+			prints(result, "#line 1 %d\n", fileidx);
+		}
 
-	std::string source;
-	if (!kiss::load_text_file(filename, &source)) {
-		fprintf(stderr, "[Shaders] \"%s\": could not find file \"%s\"!\n", shader_name, filename);
-		return false;
-	}
+		std::string source;
+		if (!kiss::load_text_file(filename, &source)) {
+			fprintf(stderr, "[Shaders] \"%s\": could not find file \"%s\"!\n", shader_name, filename);
+			return false;
+		}
 
-	bool success = true;
+		bool success = true;
 
-	auto path = kiss::get_path(filename);
+		auto path = kiss::get_path(filename);
 		
-	int line_no = 1;
+		int line_no = 1;
 
-	char const* c = source.c_str();
-	while (*c != '\0') { // for all lines
-		char const* line = c;
+		char const* c = source.c_str();
+		while (*c != '\0') { // for all lines
+			char const* line = c;
 
-		whitespace(c);
-
-		char const* inc_begin = c;
-
-		if (*c == '#') {
-			c++; // skip '#'
 			whitespace(c);
 
-			std::string_view ident;
-			if (identifier(c, &ident) && ident == "include") {
+			char const* inc_begin = c;
 
+			if (*c == '#') {
+				c++; // skip '#'
 				whitespace(c);
 
-				std::string_view inc_filename;
-				if (!quoted_string(c, &inc_filename)) {
-					fprintf(stderr, "[Shaders] \"%s\": expected filename in include at line %d!\n", shader_name, line_no);
-					success = false;
-				} else {
+				std::string_view ident;
+				if (identifier(c, &ident) && ident == "include") {
 
-					std::string inc_filepath = path + inc_filename;
-					
-					if (!preprocess_include_file(shader_name, inc_filepath.c_str(), result, src_files)) // include file text instead of ' #include "filename" '
+					whitespace(c);
+
+					std::string_view inc_filename;
+					if (!quoted_string(c, &inc_filename)) {
+						fprintf(stderr, "[Shaders] \"%s\": expected filename in include at line %d!\n", shader_name, line_no);
 						success = false;
+					} else {
 
-					//prints(result, "#line %d \"%s\"\n", line_no, filename);
-					prints(result, "#line %d %d\n", line_no, fileidx);
+						std::string inc_filepath = path + inc_filename;
+					
+						if (!preprocess_include_file(shader_name, inc_filepath.c_str(), result, src_files)) // include file text instead of ' #include "filename" '
+							success = false;
 
-					line = c; // set line to after ' #include "filename" '
+						//prints(result, "#line %d \"%s\"\n", line_no, filename);
+						prints(result, "#line %d %d\n", line_no, fileidx);
+
+						line = c; // set line to after ' #include "filename" '
+					}
 				}
+			}
+
+			// skip to after end of line line
+			while (!newline(c) && *c != '\0')
+				c++;
+			
+			line_no++;
+
+			result->append(std::string_view(line, c - line));
+		}
+
+		return success;
+	}
+
+	// Need ability to define per-shader macros, but simply prepending the macros to the source code does not work
+	// because first line in glsl shader needs to be "#versiom ...."
+	// So workaround this fact by scanning for the right place to insert
+	std::string preprocessor_insert_macro_defs (std::string const& source, char const* filename, std::string const& macros) {
+		// assume first line is always #version, so simply scan for first newline
+		char const* c = source.c_str();
+		while (!parse::newline(c) && *c != '\0')
+			c++;
+
+		std::string result;
+		result.reserve(source.capacity());
+
+		result += std::string_view(source.c_str(), c - source.c_str()); // #version line
+		result += macros;
+		//prints(&result, "#line 1 \"%s\"\n", filename); // reset source line number
+		prints(&result, "#line 1 %d\n", 0); // reset source line number
+		result += std::string_view(c, source.size() - (c - source.c_str()));
+		return result;
+	}
+
+	std::string shader_macros (std::vector<MacroDefinition> const& macros, Stage stage, bool wireframe) {
+		std::string macro_text;
+		macro_text.reserve(512);
+
+		macro_text += "// Per-shader macro definitions\n";
+		macro_text += prints("#define %s\n", SHADER_STAGE_MACRO[stage]);
+		if (wireframe)
+			macro_text += prints("#define _WIREFRAME\n");
+		for (auto& m : macros)
+			macro_text += prints("#define %s %s\n", m.name.c_str(), m.value.c_str());
+		macro_text += "\n";
+		
+		return macro_text;
+	}
+
+	////
+	bool get_shader_compile_log (GLuint shad, std::string* log) {
+		GLsizei log_len;
+		{
+			GLint temp = 0;
+			glGetShaderiv(shad, GL_INFO_LOG_LENGTH, &temp);
+			log_len = (GLsizei)temp;
+		}
+
+		if (log_len <= 1) {
+			return false; // no log available
+		} else {
+			// GL_INFO_LOG_LENGTH includes the null terminator, but it is not allowed to write the null terminator in std::string, so we have to allocate one additional char and then resize it away at the end
+
+			log->resize(log_len);
+
+			GLsizei written_len = 0;
+			glGetShaderInfoLog(shad, log_len, &written_len, &(*log)[0]);
+			assert(written_len == (log_len -1));
+
+			log->resize(written_len);
+
+			return true;
+		}
+	}
+	bool get_program_link_log (GLuint prog, std::string* log) {
+		GLsizei log_len;
+		{
+			GLint temp = 0;
+			glGetProgramiv(prog, GL_INFO_LOG_LENGTH, &temp);
+			log_len = (GLsizei)temp;
+		}
+
+		if (log_len <= 1) {
+			return false; // no log available
+		} else {
+			// GL_INFO_LOG_LENGTH includes the null terminator, but it is not allowed to write the null terminator in std::string, so we have to allocate one additional char and then resize it away at the end
+
+			log->resize(log_len);
+
+			GLsizei written_len = 0;
+			glGetProgramInfoLog(prog, log_len, &written_len, &(*log)[0]);
+			assert(written_len == (log_len -1));
+
+			log->resize(written_len);
+
+			return true;
+		}
+	}
+	bool check_shader (GLuint shad, const char* name) {
+		GLint status;
+		glGetShaderiv(shad, GL_COMPILE_STATUS, &status);
+
+		std::string log_str;
+		bool log_avail = get_shader_compile_log(shad, &log_str);
+		//if (log_avail) log_str = map_shader_log(log_str, stage_source.c_str());
+
+		bool stage_error = status == GL_FALSE;
+		if (stage_error) {
+			// compilation failed
+			printf("[Shaders] OpenGL error in shader compilation \"%s\"!\n>>>\n%s\n<<<\n", name, log_avail ? log_str.c_str() : "<no log available>");
+			return true;
+		} else {
+			// compilation success
+			if (log_avail) {
+				printf("[Shaders] OpenGL shader compilation log \"%s\":\n>>>\n%s\n<<<\n", name, log_str.c_str());
+			}
+			return false;
+		}
+	}
+	bool check_program (GLuint prog, const char* name) {
+
+		GLint status;
+		glGetProgramiv(prog, GL_LINK_STATUS, &status);
+
+		std::string log_str;
+		bool log_avail = get_program_link_log(prog, &log_str);
+
+		bool error = status == GL_FALSE;
+		if (error) {
+			// linking failed
+			printf("[Shaders] OpenGL error in shader linkage \"%s\"!\n>>>\n%s\n<<<\n", name, log_avail ? log_str.c_str() : "<no log available>");
+			return true;
+		} else {
+			// linking success
+			if (log_avail) {
+				printf("[Shaders] OpenGL shader linkage log \"%s\":\n>>>\n%s\n<<<\n", name, log_str.c_str());
+			}
+			return false;
+		}
+	}
+
+	uniform_set get_uniforms (GLuint prog) {
+		uniform_set uniforms;
+
+		GLint uniform_count = 0;
+		glGetProgramiv(prog, GL_ACTIVE_UNIFORMS, &uniform_count);
+
+		if (uniform_count != 0) {
+			GLint max_name_len = 0;
+			glGetProgramiv(prog, GL_ACTIVE_UNIFORM_MAX_LENGTH, &max_name_len);
+
+			auto uniform_name = std::make_unique<char[]>(max_name_len);
+
+			for (GLint i=0; i<uniform_count; ++i) {
+				GLsizei length = 0;
+				GLsizei count = 0;
+				GLenum 	type = GL_NONE;
+				glGetActiveUniform(prog, i, max_name_len, &length, &count, &type, uniform_name.get());
+
+				Uniform u;
+				u.location = glGetUniformLocation(prog, uniform_name.get());
+				u.name = std::string(uniform_name.get(), length);
+				u.type = type;
+
+				uniforms.emplace_back(std::move(u));
 			}
 		}
 
-		// skip to after end of line line
-		while (!newline(c) && *c != '\0')
-			c++;
-			
-		line_no++;
-
-		result->append(std::string_view(line, c - line));
+		return uniforms;
 	}
 
-	return success;
-}
+	////
+	bool compile_shader (Shader& shad, const char* name, const char* dbgname,
+			std::vector<Stage> const& stages, std::vector<MacroDefinition> const& macros, bool wireframe) {
+		shad.src_files.clear();
+		shad.uniforms.clear();
 
-// Need ability to define per-shader macros, but simply prepending the macros to the source code does not work
-// because first line in glsl shader needs to be "#versiom ...."
-// So workaround this fact by scanning for the right place to insert
-std::string preprocessor_insert_macro_defs (std::string const& source, char const* filename, std::string const& macros) {
-	// assume first line is always #version, so simply scan for first newline
-	char const* c = source.c_str();
-	while (!parse::newline(c) && *c != '\0')
-		c++;
+		std::string source;
+		source.reserve(4096);
 
-	std::string result;
-	result.reserve(source.capacity());
+		std::string filename = prints("shaders/%s.glsl", name);
 
-	result += std::string_view(source.c_str(), c - source.c_str()); // #version line
-	result += macros;
-	//prints(&result, "#line 1 \"%s\"\n", filename); // reset source line number
-	prints(&result, "#line 1 %d\n", 0); // reset source line number
-	result += std::string_view(c, source.size() - (c - source.c_str()));
-	return result;
-}
-
-std::string shader_macros (std::vector<MacroDefinition> const& macros, ShaderStage stage, bool wireframe) {
-	std::string macro_text;
-	macro_text.reserve(512);
-
-	macro_text += "// Per-shader macro definitions\n";
-	macro_text += prints("#define %s\n", SHADER_STAGE_MACRO[stage]);
-	if (wireframe)
-		macro_text += prints("#define _WIREFRAME\n");
-	for (auto& m : macros)
-		macro_text += prints("#define %s %s\n", m.name.c_str(), m.value.c_str());
-	macro_text += "\n";
-		
-	return macro_text;
-}
-
-////
-bool get_shader_compile_log (GLuint shad, std::string* log) {
-	GLsizei log_len;
-	{
-		GLint temp = 0;
-		glGetShaderiv(shad, GL_INFO_LOG_LENGTH, &temp);
-		log_len = (GLsizei)temp;
-	}
-
-	if (log_len <= 1) {
-		return false; // no log available
-	} else {
-		// GL_INFO_LOG_LENGTH includes the null terminator, but it is not allowed to write the null terminator in std::string, so we have to allocate one additional char and then resize it away at the end
-
-		log->resize(log_len);
-
-		GLsizei written_len = 0;
-		glGetShaderInfoLog(shad, log_len, &written_len, &(*log)[0]);
-		assert(written_len == (log_len -1));
-
-		log->resize(written_len);
-
-		return true;
-	}
-}
-bool get_program_link_log (GLuint prog, std::string* log) {
-	GLsizei log_len;
-	{
-		GLint temp = 0;
-		glGetProgramiv(prog, GL_INFO_LOG_LENGTH, &temp);
-		log_len = (GLsizei)temp;
-	}
-
-	if (log_len <= 1) {
-		return false; // no log available
-	} else {
-		// GL_INFO_LOG_LENGTH includes the null terminator, but it is not allowed to write the null terminator in std::string, so we have to allocate one additional char and then resize it away at the end
-
-		log->resize(log_len);
-
-		GLsizei written_len = 0;
-		glGetProgramInfoLog(prog, log_len, &written_len, &(*log)[0]);
-		assert(written_len == (log_len -1));
-
-		log->resize(written_len);
-
-		return true;
-	}
-}
-bool check_shader (GLuint shad, const char* name) {
-	GLint status;
-	glGetShaderiv(shad, GL_COMPILE_STATUS, &status);
-
-	std::string log_str;
-	bool log_avail = get_shader_compile_log(shad, &log_str);
-	//if (log_avail) log_str = map_shader_log(log_str, stage_source.c_str());
-
-	bool stage_error = status == GL_FALSE;
-	if (stage_error) {
-		// compilation failed
-		printf("[Shaders] OpenGL error in shader compilation \"%s\"!\n>>>\n%s\n<<<\n", name, log_avail ? log_str.c_str() : "<no log available>");
-		return true;
-	} else {
-		// compilation success
-		if (log_avail) {
-			printf("[Shaders] OpenGL shader compilation log \"%s\":\n>>>\n%s\n<<<\n", name, log_str.c_str());
+		// Load shader base source file
+		if (!preprocess_include_file(name, filename.c_str(), &source, &shad.src_files)) {
+			fprintf(stderr, "[Shaders] \"%s\": shader compilation error!\n", name);
+			return false;
 		}
-		return false;
-	}
-}
-bool check_program (GLuint prog, const char* name) {
 
-	GLint status;
-	glGetProgramiv(prog, GL_LINK_STATUS, &status);
+		// Compile shader stages
 
-	std::string log_str;
-	bool log_avail = get_program_link_log(prog, &log_str);
+		GLuint prog = glCreateProgram();
+		OGL_DBG_LABEL(GL_PROGRAM, prog, dbgname);
 
-	bool error = status == GL_FALSE;
-	if (error) {
-		// linking failed
-		printf("[Shaders] OpenGL error in shader linkage \"%s\"!\n>>>\n%s\n<<<\n", name, log_avail ? log_str.c_str() : "<no log available>");
-		return true;
-	} else {
-		// linking success
-		if (log_avail) {
-			printf("[Shaders] OpenGL shader linkage log \"%s\":\n>>>\n%s\n<<<\n", name, log_str.c_str());
-		}
-		return false;
-	}
-}
+		std::vector<GLuint> compiled_stages;
 
-uniform_set get_uniforms (GLuint prog) {
-	uniform_set uniforms;
-
-	GLint uniform_count = 0;
-	glGetProgramiv(prog, GL_ACTIVE_UNIFORMS, &uniform_count);
-
-	if (uniform_count != 0) {
-		GLint max_name_len = 0;
-		glGetProgramiv(prog, GL_ACTIVE_UNIFORM_MAX_LENGTH, &max_name_len);
-
-		auto uniform_name = std::make_unique<char[]>(max_name_len);
-
-		for (GLint i=0; i<uniform_count; ++i) {
-			GLsizei length = 0;
-			GLsizei count = 0;
-			GLenum 	type = GL_NONE;
-			glGetActiveUniform(prog, i, max_name_len, &length, &count, &type, uniform_name.get());
-
-			ShaderUniform u;
-			u.location = glGetUniformLocation(prog, uniform_name.get());
-			u.name = std::string(uniform_name.get(), length);
-			u.type = type;
-
-			uniforms.emplace_back(std::move(u));
-		}
-	}
-
-	return uniforms;
-}
-
-////
-bool compile_shader (Shader& shad, const char* name, const char* dbgname,
-		std::vector<ShaderStage> const& stages, std::vector<MacroDefinition> const& macros, bool wireframe) {
-	shad.src_files.clear();
-	shad.uniforms.clear();
-
-	std::string source;
-	source.reserve(4096);
-
-	std::string filename = prints("shaders/%s.glsl", name);
-
-	// Load shader base source file
-	if (!preprocess_include_file(name, filename.c_str(), &source, &shad.src_files)) {
-		fprintf(stderr, "[Shaders] \"%s\": shader compilation error!\n", name);
-		return false;
-	}
-
-	// Compile shader stages
-
-	GLuint prog = glCreateProgram();
-	OGL_DBG_LABEL(GL_PROGRAM, prog, dbgname);
-
-	std::vector<GLuint> compiled_stages;
-
-	bool error = false;
+		bool error = false;
 	
-	for (auto stage : stages) {
+		for (auto stage : stages) {
 
-		GLuint shad = glCreateShader(SHADER_STAGE_GLENUM[stage]);
-		glAttachShader(prog, shad);
+			GLuint shad = glCreateShader(SHADER_STAGE_GLENUM[stage]);
+			glAttachShader(prog, shad);
 	
-		std::string stage_source = preprocessor_insert_macro_defs(source, filename.c_str(), shader_macros(macros, stage, wireframe));
+			std::string stage_source = preprocessor_insert_macro_defs(source, filename.c_str(), shader_macros(macros, stage, wireframe));
 
-		{
-			const char* ptr = stage_source.c_str();
-			glShaderSource(shad, 1, &ptr, NULL);
+			{
+				const char* ptr = stage_source.c_str();
+				glShaderSource(shad, 1, &ptr, NULL);
+			}
+
+			glCompileShader(shad);
+
+			error = check_shader(shad, name) || error;
+
+			compiled_stages.push_back(shad);
 		}
 
-		glCompileShader(shad);
-
-		error = check_shader(shad, name) || error;
-
-		compiled_stages.push_back(shad);
-	}
-
-	if (!error) { // skip linking if stage has error
-		glLinkProgram(prog);
+		if (!error) { // skip linking if stage has error
+			glLinkProgram(prog);
 		
-		error = check_program(prog, name);
+			error = check_program(prog, name);
 		
-		shad.uniforms = get_uniforms(prog);
-		//CommonUniforms::setup_shader_ubo(prog);
-	}
+			shad.uniforms = get_uniforms(prog);
+			//CommonUniforms::setup_shader_ubo(prog);
+		}
 
-	for (auto stage : compiled_stages) {
-		glDetachShader(prog, stage);
-		glDeleteShader(stage);
-	}
+		for (auto stage : compiled_stages) {
+			glDetachShader(prog, stage);
+			glDeleteShader(stage);
+		}
 
-	if (error) {
-		fprintf(stderr, "[Shaders] \"%s\": shader compilation error!\n", name);
+		if (error) {
+			fprintf(stderr, "[Shaders] \"%s\": shader compilation error!\n", name);
 
-		glDeleteProgram(prog);
-		shad.prog = 0;
+			glDeleteProgram(prog);
+			shad.prog = 0;
+		}
+		shad.prog = prog;
+		return !error;
 	}
-	shad.prog = prog;
-	return !error;
 }
 
 void take_screenshot (int2 size) {

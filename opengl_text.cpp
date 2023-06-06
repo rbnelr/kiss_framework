@@ -1,3 +1,4 @@
+#include "common.hpp" // for PCH
 #include "opengl_text.hpp"
 
 namespace ogl {
@@ -395,7 +396,8 @@ void TextRenderer::render (StateManager& state) {
 	vbo.stream_instances(glyph_instances);
 
 	glBindVertexArray(vbo.vao);
-	glDrawElementsInstanced(GL_TRIANGLES, (GLsizei)ARRLEN(QUAD_INDICES), GL_UNSIGNED_SHORT, (void*)0, (GLsizei)glyph_instances.size());
+	glDrawElementsInstanced(GL_TRIANGLES, (GLsizei)ARRLEN(render::shapes::QUAD_INDICES),
+		GL_UNSIGNED_SHORT, (void*)0, (GLsizei)glyph_instances.size());
 }
 
 } // namespace ogl
