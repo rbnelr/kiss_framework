@@ -694,7 +694,7 @@ inline void setup_vao (render::VertexAttributes<N> const& attribs, GLuint vao, G
 template <typename VERTEX>
 inline VertexBuffer vertex_buffer (std::string_view label) {
 	VertexBuffer buf = {label};
-	setup_vao(VERTEX::attribs(), buf.vao, buf.vbo, 0);
+	setup_vao(VERTEX::attribs(), buf.vao, buf.vbo);
 	return buf;
 }
 // Create Indexed VBO (with EBO and VAO) for this Vertex config
@@ -702,6 +702,43 @@ template <typename VERTEX>
 inline VertexBufferI vertex_bufferI (std::string_view label) {
 	VertexBufferI buf = {label};
 	setup_vao(VERTEX::attribs(), buf.vao, buf.vbo, buf.ebo);
+	return buf;
+}
+
+// Create Non-indexed, Instanced VBO (with VAO) for this Vertex config
+template <typename MESH_VERTEX, typename INSTANCE_VERTEX>
+inline VertexBufferInstanced vertex_buffer_instaced (std::string_view label) {
+	VertexBufferInstanced buf = {label};
+	
+	glBindVertexArray(buf.vao);
+
+	glBindBuffer(GL_ARRAY_BUFFER, buf.vbo);
+	int idx = setup_vao_attribs(MESH_VERTEX::attribs(), 0, 0);
+	glBindBuffer(GL_ARRAY_BUFFER, buf.instances);
+	    idx = setup_vao_attribs(INSTANCE_VERTEX::attribs(), idx, 0);
+	glBindBuffer(GL_ARRAY_BUFFER, 0); // glVertexAttribPointer remembers VAO
+
+	glBindVertexArray(0);
+
+	return buf;
+}
+// Create Indexed, Instanced VBO (with EBO and VAO) for this Vertex config
+template <typename MESH_VERTEX, typename INSTANCE_VERTEX>
+inline VertexBufferInstancedI vertex_buffer_instacedI (std::string_view label) {
+	VertexBufferInstancedI buf = {label};
+	
+	glBindVertexArray(buf.vao);
+	glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, buf.ebo);
+
+	glBindBuffer(GL_ARRAY_BUFFER, buf.vbo);
+	int idx = setup_vao_attribs(MESH_VERTEX::attribs(), 0, 0);
+	glBindBuffer(GL_ARRAY_BUFFER, buf.instances);
+	    idx = setup_vao_attribs(INSTANCE_VERTEX::attribs(), idx, 0);
+	glBindBuffer(GL_ARRAY_BUFFER, 0); // glVertexAttribPointer remembers VAO
+
+	glBindVertexArray(0);
+	glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, 0); // VAO remembers EBO (note that we need to unbind VAO first)
+
 	return buf;
 }
 
