@@ -125,13 +125,14 @@ inline void azimuthal_mount (float3 const& aer, float3x3* out_world2cam, float3x
 	if (out_cam2world) *out_cam2world = rotate3_Z(+aer.x) * rotate3_X(+aer.y + deg(90)) * rotate3_Z(-aer.z);
 }
 
-inline void rotate_with_mouselook (Input& I, float vfov, float3* aer) {
+inline void rotate_with_mouselook (Input& I, float vfov, float3* aer,
+		float azim_min=deg(-180), float azim_max=deg(180), float elev_min=deg(-85), float elev_max=deg(85)) {
 	float& azimuth   = aer->x;
 	float& elevation = aer->y;
 	float& roll      = aer->z;
 
 	// Mouselook
-	auto raw_mouselook = I.get_mouselook_delta();
+	auto raw_mouselook = I.get_fps_mouselook_delta();
 
 	float2 sens = I.mouselook_sens / 1000;
 	sens.x *= I.mouselook_sens_x_scale;
@@ -142,11 +143,8 @@ inline void rotate_with_mouselook (Input& I, float vfov, float3* aer) {
 	azimuth   -= delta.x;
 	elevation += delta.y;
 
-	azimuth = wrap(azimuth, deg(-180), deg(180));
-	
-	float down_limit = deg(5);
-	float up_limit = deg(5);
-	elevation = clamp(elevation, deg(-90) + down_limit, deg(+90) - up_limit);
+	azimuth = wrap(azimuth, azim_min, azim_max);
+	elevation = clamp(elevation, elev_min, elev_max);
 
 	// roll with keys
 	float roll_dir = 0;
@@ -179,27 +177,11 @@ struct Camera2D {
 	//SERIALIZE(Camera2D, pos, zoom, rot, move_speed, zoom_smooth_fac, zoom_speed, stretch, clip_near, clip_far)
 	
 	// Need to manually serialize to avoid animated zoom in at load
-	friend void to_json(nlohmann::ordered_json& j, const Camera2D& t) {
-		j["pos"            ] = t.pos             ;
-		j["zoom"           ] = t.zoom            ;
-		j["rot"            ] = t.rot             ;
-		j["move_speed"     ] = t.move_speed      ;
-		j["zoom_smooth_fac"] = t.zoom_smooth_fac ;
-		j["zoom_speed"     ] = t.zoom_speed      ;
-		j["stretch"        ] = t.stretch         ;
-		j["clip_near"      ] = t.clip_near       ;
-		j["clip_far"       ] = t.clip_far        ;
+	friend SERIALIZE_TO_JSON(Camera2D) {
+		SERIALIZE_TO_JSON_EXPAND(pos, zoom, rot, move_speed, zoom_smooth_fac, zoom_speed, stretch, clip_near, clip_far)
 	}
-	friend void from_json(const nlohmann::ordered_json& j, Camera2D& t) {
-		if (j.contains("pos"            )) j.at("pos"            ).get_to(t.pos            );
-		if (j.contains("zoom"           )) j.at("zoom"           ).get_to(t.zoom           );
-		if (j.contains("rot"            )) j.at("rot"            ).get_to(t.rot            );
-		if (j.contains("move_speed"     )) j.at("move_speed"     ).get_to(t.move_speed     );
-		if (j.contains("zoom_smooth_fac")) j.at("zoom_smooth_fac").get_to(t.zoom_smooth_fac);
-		if (j.contains("zoom_speed"     )) j.at("zoom_speed"     ).get_to(t.zoom_speed     );
-		if (j.contains("stretch"        )) j.at("stretch"        ).get_to(t.stretch        );
-		if (j.contains("clip_near"      )) j.at("clip_near"      ).get_to(t.clip_near      );
-		if (j.contains("clip_far"       )) j.at("clip_far"       ).get_to(t.clip_far       );
+	friend SERIALIZE_FROM_JSON(Camera2D) {
+		SERIALIZE_FROM_JSON_EXPAND(pos, zoom, rot, move_speed, zoom_smooth_fac, zoom_speed, stretch, clip_near, clip_far)
 
 		// HERE: need this to avoid animated zoom in at load
 		t.zoom_target = t.zoom;

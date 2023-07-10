@@ -4,19 +4,6 @@
 
 namespace render {
 	
-/* Use like:
-	struct Vertex {
-		float3 pos;
-		float2 uv;
-		float4 col;
-
-		ATTRIBUTES(
-			ATTRIB(FLT3, Vertex, pos);
-			ATTRIB(FLT2, Vertex, uv);
-			ATTRIB(FLT4, Vertex, col);
-		)
-	};
-*/
 struct Attribute {
 	enum Type {
 		FLT, FLT2, FLT3, FLT4,
@@ -40,6 +27,19 @@ struct VertexAttributes {
 template <size_t N>
 inline constexpr VertexAttributes<N> _make_attribs (bool instanced, std::array<render::Attribute, N> attribs) { return {instanced, attribs}; }
 
+/* Use like:
+	struct Vertex {
+		float3 pos;
+		float2 uv;
+		float4 col;
+
+		VERTEX_CONFIG(
+			ATTRIB(FLT3, Vertex, pos);
+			ATTRIB(FLT2, Vertex, uv);
+			ATTRIB(FLT4, Vertex, col);
+		)
+	};
+*/
 #define VERTEX_CONFIG(...)           static inline constexpr auto attribs () { return _make_attribs(0, std::array{__VA_ARGS__}); }
 #define VERTEX_CONFIG_INSTANCED(...) static inline constexpr auto attribs () { return _make_attribs(1, std::array{__VA_ARGS__}); }
 #define ATTRIB(type, VertexType, member) render::Attribute{render::Attribute::type, (int)sizeof(VertexType), (int)offsetof(VertexType, member)}
@@ -79,6 +79,9 @@ namespace shapes {
 	inline constexpr uint16_t QUAD_INDICES_ROT[] = {
 		0,1,3, 1,2,3
 	};
+
+	#define REND_QUAD_INDICES(a,b,c,d)     (b), (c), (a), (a), (c), (d)
+	#define REND_QUAD_INDICES_ROT(a,b,c,d) (a), (b), (d), (b), (c), (d)
 
 	template <typename T>
 	inline void push_quad_indices (std::vector<T>& vec, T a, T b, T c, T d) {

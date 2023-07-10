@@ -1,5 +1,5 @@
 #include "common.hpp"
-#include "generic_render.hpp"
+#include "agnostic_render.hpp"
 
 namespace render {
 	
