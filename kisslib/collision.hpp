@@ -10,9 +10,35 @@ struct Plane {
 	float3 normal;
 };
 struct AABB {
-	float3 lo;
-	float3 hi;
+	float3 lo=+INF, hi=-INF;
+
+	float3 center () {
+		return (lo + hi) * 0.5f;
+	}
+
+	static AABB add (AABB const& l, float3 const& r) {
+		AABB res;
+		res.lo = ::min(l.lo, r);
+		res.hi = ::max(l.hi, r);
+		//assert(all(res.lo <= res.hi));
+		return res;
+	}
+	static AABB add (AABB const& l, AABB const& r) {
+		AABB res;
+		res.lo = ::min(l.lo, r.lo);
+		res.hi = ::max(l.hi, r.hi);
+		//assert(all(res.lo <= res.hi));
+		return res;
+	}
+
+	void add (float3 const& r) {
+		*this = add(*this, r);
+	}
+	void add (AABB const& r) {
+		*this = add(*this, r);
+	}
 };
+
 
 struct View_Frustrum {
 	// The view frustrum planes in world space
