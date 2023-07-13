@@ -43,8 +43,12 @@ namespace kiss {
 		return ret;
 	}
 
-	bool starts_with (std::string const& str, std::string_view substr) {
+	bool starts_with (std::string_view str, std::string_view substr) {
 		return str.size() >= substr.size() && memcmp(str.data(), substr.data(), substr.size()) == 0;
+	}
+	bool contains (std::string_view str, std::string_view substr) {
+		auto it = str.find(substr);
+		return it != std::string_view::npos;
 	}
 
 	constexpr inline bool _is_whitespace_c (char c) {

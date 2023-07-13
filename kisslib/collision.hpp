@@ -15,6 +15,9 @@ struct AABB {
 	float3 center () {
 		return (lo + hi) * 0.5f;
 	}
+	float3 size () {
+		return hi - lo;
+	}
 
 	static AABB add (AABB const& l, float3 const& r) {
 		AABB res;
