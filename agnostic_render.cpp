@@ -60,6 +60,30 @@ void DebugDraw::wire_cube (float3 const& pos, float3 const& size, lrgba const& c
 	}
 }
 
+void DebugDraw::wire_circle (float3 const& pos, float r, lrgba const& col, int angres) {
+	auto* out = push_back(lines, angres * 2);
+
+	float ang_step = deg(360) / (float)angres;
+	float s0=0, c0=1; // optimize not calling sin&cos 2x per loop
+	for (int i=0; i<angres; ++i) {
+		float t = (float)(i+1) * ang_step;
+
+		float s1 = sin(t);
+		float c1 = cos(t);
+
+		out->pos = float3(c0, s0, 0.0f) * r + pos;
+		out->col = col;
+		out++;
+
+		out->pos = float3(c1, s1, 0.0f) * r + pos;
+		out->col = col;
+		out++;
+
+		s0 = s1;
+		c0 = c1;
+	}
+}
+
 void DebugDraw::wire_sphere (float3 const& pos, float r, lrgba const& col, int angres, int wires) {
 	int wiresz = wires/2 -1; // one less wire, so we get even vertical wires and odd number of horiz wires, so that there is a 'middle' horiz wire
 	int wiresxy = wires;
