@@ -103,3 +103,57 @@ void cylinder_cube_cast (float3 const& offset, float3 const& dir, float cyl_r, f
 // useful for axis translation gizmos
 bool ray_line_closest_intersect (float3 const& ray_pos, float3 const& ray_dir, float3 const& line_pos, float3 const& line_dir,
 		float3* intersect);
+
+
+struct CylinderZ {
+	float3 pos;
+	float  height;
+	float  radius;
+};
+
+struct CylZRayHit {
+	float t0;
+	float t1;
+};
+inline bool intersect_cylinder_ray (CylinderZ const& cyl, Ray const& ray, CylZRayHit* hit) {
+	float tz0 = -INF;
+	float tz1 = +INF;
+	if (ray.dir.z != 0) {
+		float t0 = (cyl.pos.z              - ray.pos.z) * (1.0f / ray.dir.z);
+		float t1 = (cyl.pos.z + cyl.height - ray.pos.z) * (1.0f / ray.dir.z);
+		tz0 = min(t0, t1);
+		tz1 = max(t0, t1);
+	}
+	else {
+		// ray parallel
+		if (ray.pos.z < cyl.pos.z || ray.pos.z > cyl.pos.z + cyl.height)
+			return false; // miss
+	}
+
+	float2 rel = (float2)ray.pos - (float2)cyl.pos;
+
+	float c = 1.0f / (ray.dir.x*ray.dir.x + ray.dir.y*ray.dir.y);
+
+	float p = c * (ray.dir.x*rel.x + ray.dir.y*rel.y);
+	float q = c * (rel.x*rel.x + rel.y*rel.y - cyl.radius*cyl.radius);
+
+	float rt = p*p-q;
+	if (rt < 0.0f)
+		return false; // miss
+
+	rt = sqrt(rt);
+	float t0 = -p - rt;
+	float t1 = -p + rt;
+
+	t0 = max(tz0, t0);
+	t1 = min(tz1, t1);
+
+	t0 = max(t0, 0.0f);
+
+	if (t0 > t1)
+		return false;
+	
+	hit->t0 = t0;
+	hit->t1 = t1;
+	return true;
+}

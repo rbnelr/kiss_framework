@@ -75,7 +75,7 @@ inline void ortho_cam2clip (float w, float h, float near, float far, float4x4* o
 }
 
 inline void persp_cam2clip (float vfov, float aspect_wh, float near, float far, float4x4* out_cam2clip, float4x4* out_clip2cam, float2* out_frust_size) {
-	float y = tanf(vfov / 2.0f);
+	float y = tanf(vfov * 0.5f);
 	float x = y * aspect_wh;
 
 	if (out_frust_size) *out_frust_size = float2(x,y); // half-widths of frustrum at 1 unit depth
@@ -481,7 +481,7 @@ struct Flycam {
 		view.world2clip = view.cam2clip * view.world2cam;
 		view.clip2world = view.cam2world * view.clip2cam;
 		// misc
-		view.frust_near_size    = frust_size * 2.0f;
+		view.frust_near_size    = frust_size * 2.0f * clip_near;
 		view.clip_near          = clip_near;
 		view.clip_far           = clip_far;
 		view.cam_pos            = pos;
