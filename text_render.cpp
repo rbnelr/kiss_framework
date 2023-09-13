@@ -1,12 +1,8 @@
 #include "common.hpp" // for PCH
-#include "opengl_text.hpp"
+#include "text_render.hpp"
 
-namespace ogl {
-
-bool TextRenderer::generate () {
+Image<uint8_t> TextRenderer::generate_tex () {
 	ZoneScoped;
-
-	shad = g_shaders.compile("text", {{"SDF", enable_sdf ? "1":"0"}});
 
 	stbtt_pack_range range = {};
 	{
@@ -47,8 +43,8 @@ bool TextRenderer::generate () {
 		}
 	}
 
-	upload_texture(atlas);
-	return true;
+	//
+	return atlas;
 }
 
 void TextRenderer::get_line_metrics (stbtt_fontinfo const& info, float scale) {
@@ -274,28 +270,6 @@ bool TextRenderer::generate_sdf (Image<uint8_t>& atlas, stbtt_pack_range* ranges
 	return all_packed;
 }
 
-void TextRenderer::upload_texture (Image<uint8_t>& atlas) {
-	ZoneScoped;
-
-	glBindTexture(GL_TEXTURE_2D, atlas_tex);
-
-	glPixelStorei(GL_UNPACK_ALIGNMENT, 1);
-	glTexImage2D(GL_TEXTURE_2D, 0, GL_R8, atlas_size.x,atlas_size.y, 0, GL_RED, GL_UNSIGNED_BYTE, atlas.pixels);
-
-	glGenerateMipmap(GL_TEXTURE_2D);
-
-	//glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_BASE_LEVEL, 0);
-	//glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAX_LEVEL, mipmaps);
-
-	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR_MIPMAP_LINEAR);
-	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
-	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
-	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
-	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_R, GL_CLAMP_TO_EDGE);
-
-	glBindTexture(GL_TEXTURE_2D, 0);
-}
-
 int TextRenderer::generate_glyphs (std::string_view text, float font_size, float4 const& color, float2* pos, float* boundsx) {
 	float ipw = 1.0f / (float)atlas_size.x;
 	float iph = 1.0f / (float)atlas_size.y;
@@ -366,38 +340,3 @@ void TextRenderer::offset_glyphs (int idx, int len, float2 const& offset) {
 	}
 }
 
-void TextRenderer::render (StateManager& state) {
-	OGL_TRACE("TextRenderer")
-	ZoneScoped;
-
-	glUseProgram(shad->prog);
-
-	PipelineState s;
-	s.depth_test = false;
-	s.blend_enable = true; 
-	s.blend_func.equation = GL_FUNC_ADD; 
-	s.blend_func.sfactor = GL_ONE; // for outlined SDF math it's simpler to multiply alpha ourselves
-	s.blend_func.dfactor = GL_ONE_MINUS_SRC_ALPHA;
-	state.set(s);
-
-	glActiveTexture(GL_TEXTURE0);
-	glBindTexture(GL_TEXTURE_2D, atlas_tex);
-	shad->set_uniform("atlas_tex", 0);
-
-	if (enable_sdf) {
-		shad->set_uniform("sdf_onedge", (float)sdf_onedge / 255.0f);
-		shad->set_uniform("sdf_scale", 255.0f / sdf_scale);
-
-		shad->set_uniform("sdf_outline_w", sdf_outline ? sdf_outline_w : 0.0f);
-		shad->set_uniform("sdf_outline_col", sdf_outline_col);
-		shad->set_uniform("sdf_grow", sdf_grow);
-	}
-
-	vbo.stream_instances(glyph_instances);
-
-	glBindVertexArray(vbo.vao);
-	glDrawElementsInstanced(GL_TRIANGLES, (GLsizei)ARRLEN(render::shapes::QUAD_INDICES),
-		GL_UNSIGNED_SHORT, (void*)0, (GLsizei)glyph_instances.size());
-}
-
-} // namespace ogl

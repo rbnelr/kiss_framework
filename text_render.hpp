@@ -1,11 +1,9 @@
 #pragma once
 #include "common.hpp"
-#include "opengl.hpp"
+#include "agnostic_render.hpp"
 
 #include "kisslib/stb_rect_pack.hpp"
 #include "kisslib/stb_truetype.hpp"
-
-namespace ogl {
 
 struct TextRenderer {
 
@@ -77,14 +75,14 @@ struct TextRenderer {
 	int pixel_padding = 4; // for non-sdf
 	//int mipmaps = 4;
 
+	bool texture_changed = true;
+
 	TextRenderer (char const* font_path = "fonts/DroidSerif-WmoY.ttf", float font_res = 64, bool sdf = true,
 			const char* unicode_glyphs=nullptr): glyph_set{unicode_glyphs} { 
 
 		this->font_path = font_path;
 		this->font_res = font_res;
 		this->enable_sdf = sdf;
-
-		generate();
 	}
 
 // Generated data for drawing
@@ -93,10 +91,6 @@ struct TextRenderer {
 	float line_ascent, line_descent;
 	float line_advance;
 	float right_padding;
-
-// Opengl objects
-	Shader* shad;
-	Texture2D atlas_tex = {"TextRenderer::atlas_tex"};
 
 	struct GlyphQuad {
 		float2 pos;
@@ -124,59 +118,34 @@ struct TextRenderer {
 		)
 	};
 
-	static VertexBufferInstancedI create_vbo () {
-		VertexBufferInstancedI buf = {"text"};
-		
-		glBindVertexArray(buf.vao);
-		glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, buf.ebo);
-
-		glBindBuffer(GL_ARRAY_BUFFER, buf.vbo);
-		setup_vao_attribs(GlyphQuad::attribs(), 0, 0);
-		glBindBuffer(GL_ARRAY_BUFFER, 0);
-
-		glBindBuffer(GL_ARRAY_BUFFER, buf.instances);
-		setup_vao_attribs(GlyphQuad::attribs(), 1, offsetof(GlyphInstance, px_rect));
-		glBindBuffer(GL_ARRAY_BUFFER, 0);
-
-		glBindVertexArray(0);
-		glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, 0);
-
-		upload_buffer(GL_ARRAY_BUFFER        , buf.vbo, sizeof(GLYPH_QUAD), GLYPH_QUAD);
-		upload_buffer(GL_ELEMENT_ARRAY_BUFFER, buf.ebo, sizeof(render::shapes::QUAD_INDICES), render::shapes::QUAD_INDICES);
-
-		return buf;
-	}
-	VertexBufferInstancedI vbo = create_vbo();
-
 	std::vector<GlyphInstance> glyph_instances;
 
 	void imgui () {
 		if (!ImGui::TreeNode("Text Renderer")) return;
 
 		ImGui::InputText("font_path", &font_path);
-		bool changed = ImGui::Button("Load");
+		texture_changed = ImGui::Button("Load") || texture_changed;
 
-		changed = ImGui::SliderFloat("font_res", &font_res, 2, 80) || changed;
+		texture_changed = ImGui::SliderFloat("font_res", &font_res, 2, 80) || texture_changed;
 
-		changed = ImGui::Checkbox("enable_sdf", &enable_sdf) || changed;
+		texture_changed = ImGui::Checkbox("enable_sdf", &enable_sdf) || texture_changed;
 
-		changed = ImGui::Checkbox("sdf_outline", &sdf_outline) || changed;
+		texture_changed = ImGui::Checkbox("sdf_outline", &sdf_outline) || texture_changed;
 		ImGui::ColorEdit4("sdf_outline_col", &sdf_outline_col.x);
 		ImGui::DragFloat("sdf_outline_w", &sdf_outline_w, 0.02f);
 		ImGui::DragFloat("sdf_grow", &sdf_grow, 0.02f);
-
-		if (changed)
-			generate();
 		
 		ImGui::TreePop();
 	}
 
-	bool generate ();
+	// call this when texture_changed == true and make sure to do that before or directly after begin
+	// so avoid draw_text ecetera as it will use wrong data otherwise
+	Image<uint8_t> generate_tex ();
+
 	void get_line_metrics (stbtt_fontinfo const& info, float scale);
 	bool generate_bitmap (Image<uint8_t>& atlas, stbtt_pack_range* ranges, int num_ranges, const unsigned char* ttf_file);
 	bool generate_sdf    (Image<uint8_t>& atlas, stbtt_pack_range* ranges, int num_ranges, const unsigned char* ttf_file);
-	void upload_texture  (Image<uint8_t>& atlas);
-
+	
 	void begin () {
 		glyph_instances.clear();
 	}
@@ -259,8 +228,4 @@ struct TextRenderer {
 	static float2 map_text (float2 const& pos, View3D const& view) {
 		return map_text(float3(pos, 0), view);
 	}
-
-	void render (StateManager& state);
 };
-
-} // namespace ogl

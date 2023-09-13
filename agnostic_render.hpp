@@ -25,7 +25,7 @@ struct VertexAttributes {
 };
 
 template <size_t N>
-inline constexpr VertexAttributes<N> _make_attribs (bool instanced, std::array<render::Attribute, N> attribs) { return {instanced, attribs}; }
+inline constexpr VertexAttributes<N> _make_attribs (int instanced, std::array<render::Attribute, N> attribs) { return {instanced, attribs}; }
 
 /* Use like:
 	struct Vertex {
@@ -123,6 +123,10 @@ namespace shapes {
 	void wire_sphere (std::vector<float3>* vertices, std::vector<uint16_t>* indices, float r, int segments);
 }
 
+}
+#include "text_render.hpp" // ugh, but I hate having to break down files even more just to fix circular include
+namespace render {
+
 struct DebugDraw {
 	struct LineVertex {
 		float3 pos;
@@ -170,7 +174,7 @@ struct DebugDraw {
 
 	void point (float3 const& pos, float3 const& size, lrgba const& col);
 	void line (float3 const& a, float3 const& b, lrgba const& col);
-	void vector (float3 const& pos, float3 const& dir, lrgba const& col);
+	void arrow (View3D const& view, float3 const& pos, float3 const& dir, float head_sz, lrgba const& col);
 
 	void wire_quad (float3 const& pos, float2 size, lrgba const& col);
 	void wire_cube (float3 const& pos, float3 const& size, lrgba const& col);
@@ -183,6 +187,8 @@ struct DebugDraw {
 	void cylinder (float3 const& base, float radius, float height, lrgba const& col, int sides=32);
 
 	void axis_gizmo (View3D const& view, int2 const& viewport_size);
+
+	TextRenderer text;
 };
 
 // use in backend Renderbuffer

@@ -9,8 +9,24 @@ void DebugDraw::line (float3 const& a, float3 const& b, lrgba const& col) {
 	*out++ = { a, col };
 	*out++ = { b, col };
 }	
-void DebugDraw::vector (float3 const& pos, float3 const& dir, lrgba const& col) {
-	line(pos, pos + dir, col);
+void DebugDraw::arrow (View3D const& view, float3 const& pos, float3 const& dir, float head_sz, lrgba const& col) {
+	float3 forw_dir = normalizesafe(dir);
+
+	float3 cam_dir = view.cam_pos - pos;
+	float3 left_vec = normalizesafe(cross(forw_dir, cam_dir));
+	
+	float3 tip = pos + dir;
+	auto* out = push_back(lines, 6);
+
+
+	*out++ = { pos, col };
+	*out++ = { tip, col };
+	
+	*out++ = { tip, col };
+	*out++ = { tip + (+left_vec - forw_dir) * head_sz, col };
+
+	*out++ = { tip, col };
+	*out++ = { tip + (-left_vec - forw_dir) * head_sz, col };
 }
 
 void DebugDraw::point (float3 const& pos, float3 const& size, lrgba const& col) {
@@ -285,9 +301,9 @@ void DebugDraw::axis_gizmo (View3D const& view, int2 const& viewport_size) {
 	float3 pos_cam2 = (float3)(view.clip2cam * float4(pos_clip.x, pos_clip.y + size_clip, 0,1)).y; // size in cam = size in world
 	float size_world = pos_cam2.y - pos_cam.y;
 
-	vector(pos_world, float3(size_world,0,0), lrgba(1,0,0,1));
-	vector(pos_world, float3(0,size_world,0), lrgba(0,1,0,1));
-	vector(pos_world, float3(0,0,size_world), lrgba(0,0,1,1));
+	arrow(view, pos_world, float3(size_world,0,0), size_world*0.15f, lrgba(1,0,0,1));
+	arrow(view, pos_world, float3(0,size_world,0), size_world*0.15f, lrgba(0,1,0,1));
+	arrow(view, pos_world, float3(0,0,size_world), size_world*0.15f, lrgba(0,0,1,1));
 }
 
 } // namespace render

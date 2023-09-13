@@ -707,7 +707,7 @@ inline VertexBufferI vertex_bufferI (std::string_view label) {
 
 // Create Non-indexed, Instanced VBO (with VAO) for this Vertex config
 template <typename MESH_VERTEX, typename INSTANCE_VERTEX>
-inline VertexBufferInstanced vertex_buffer_instaced (std::string_view label) {
+inline VertexBufferInstanced vertex_buffer_instanced (std::string_view label) {
 	VertexBufferInstanced buf = {label};
 	
 	glBindVertexArray(buf.vao);
@@ -724,7 +724,7 @@ inline VertexBufferInstanced vertex_buffer_instaced (std::string_view label) {
 }
 // Create Indexed, Instanced VBO (with EBO and VAO) for this Vertex config
 template <typename MESH_VERTEX, typename INSTANCE_VERTEX>
-inline VertexBufferInstancedI vertex_buffer_instacedI (std::string_view label) {
+inline VertexBufferInstancedI vertex_buffer_instancedI (std::string_view label) {
 	VertexBufferInstancedI buf = {label};
 	
 	glBindVertexArray(buf.vao);
@@ -1069,7 +1069,7 @@ enum TexFilterMode {
 	FILTER_NEAREST,
 	FILTER_BILINEAR,
 };
-inline Sampler sampler (std::string_view label, TexFilterMode filter, GLenum wrap_mode=GL_CLAMP_TO_EDGE, bool aniso=false) {
+inline Sampler sampler (std::string_view label, TexFilterMode filter, GLenum wrap_mode=GL_REPEAT, bool aniso=false) {
 	auto sampler = Sampler(label);
 	
 	GLenum min=0, mag=0;
