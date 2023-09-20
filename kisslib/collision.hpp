@@ -9,17 +9,18 @@ struct Plane {
 	float3 pos;
 	float3 normal;
 };
+template <typename T>
 struct AABB {
-	float3 lo=+INF, hi=-INF;
+	T lo=+INF, hi=-INF;
 
-	float3 center () {
+	T center () {
 		return (lo + hi) * 0.5f;
 	}
-	float3 size () {
+	T size () {
 		return hi - lo;
 	}
 
-	static AABB add (AABB const& l, float3 const& r) {
+	static AABB add (AABB const& l, T const& r) {
 		AABB res;
 		res.lo = ::min(l.lo, r);
 		res.hi = ::max(l.hi, r);
@@ -34,14 +35,20 @@ struct AABB {
 		return res;
 	}
 
-	void add (float3 const& r) {
+	void add (T const& r) {
 		*this = add(*this, r);
 	}
 	void add (AABB const& r) {
 		*this = add(*this, r);
 	}
+
+	bool overlap (AABB const& r) const {
+		return all(hi >= r.lo && lo <= r.hi);
+	}
 };
 
+using AABB3 = AABB<float3>;
+using AABB2 = AABB<float2>;
 
 struct View_Frustrum {
 	// The view frustrum planes in world space
@@ -80,7 +87,7 @@ float point_line_segment_dist (float2 const& line_pos, float2 const& line_dir, f
 // this cull 99% of the AABB that are invisible, but returns a false negative sometimes
 bool frustrum_cull_aabb (View_Frustrum const& frust, float lx, float ly, float lz, float hx, float hy, float hz);
 
-inline bool frustrum_cull_aabb (View_Frustrum const& frust, AABB const& aabb) {
+inline bool frustrum_cull_aabb (View_Frustrum const& frust, AABB3 const& aabb) {
 	return frustrum_cull_aabb(frust, aabb.lo.x, aabb.lo.y, aabb.lo.z, aabb.hi.x, aabb.hi.y, aabb.hi.z);
 }
 

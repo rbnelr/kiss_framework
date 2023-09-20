@@ -68,7 +68,7 @@ float point_box_dist_sqr (float3 const& box_pos, float3 const& box_size, float3 
 
 // aabb gets culled when is lies completely on +normal dir side of palne
 // returns true when culled
-bool plane_cull_aabb (Plane const& plane, AABB const& aabb) {
+bool plane_cull_aabb (Plane const& plane, AABB3 const& aabb) {
 	// test if any of the 9 points lie inside the plane => not culled
 	float3 lo = aabb.lo - plane.pos;
 	float3 hi = aabb.hi - plane.pos;
