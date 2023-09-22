@@ -13,7 +13,7 @@
 //-----------------------------------------------------------------------------
 
 #pragma once
-#include "../../engine_config.hpp"
+#include "../kisslib/kissmath.hpp"
 
 //---- Define assertion handler. Defaults to calling assert().
 // If your macro uses multiple statements, make sure is enclosed in a 'do { .. } while (0)' block so it can be used as a single statement.
@@ -33,7 +33,6 @@
 
 //---- Disable all of Dear ImGui or don't implement standard windows/tools.
 // It is very strongly recommended to NOT disable the demo windows and debug tool during development. They are extremely useful in day to day work. Please read comments in imgui_demo.cpp.
-//#define IMGUI_DISABLE                                     // Disable everything: all headers and source files will be empty.
 #ifndef IMGUI_DEMO
 	#define IMGUI_DISABLE_DEMO_WINDOWS                        // Disable demo windows: ShowDemoWindow()/ShowStyleEditor() will be empty.
 	#define IMGUI_DISABLE_DEBUG_TOOLS                         // Disable metrics/debugger and other debug tools: ShowMetricsWindow(), ShowDebugLogWindow() and ShowStackToolWindow() will be empty (this was called IMGUI_DISABLE_METRICS_WINDOW before 1.88).
@@ -84,15 +83,17 @@
 
 //---- Define constructor and implicit cast operators to convert back<>forth between your math types and ImVec2/ImVec4.
 // This will be inlined as part of ImVec2 and ImVec4 class declarations.
-/*
+
 #define IM_VEC2_CLASS_EXTRA                                                     \
-        constexpr ImVec2(const MyVec2& f) : x(f.x), y(f.y) {}                   \
-        operator MyVec2() const { return MyVec2(x,y); }
+        constexpr ImVec2(const float2& f) : x(f.x), y(f.y) {}                   \
+        operator float2() const { return float2(x,y); }
 
 #define IM_VEC4_CLASS_EXTRA                                                     \
-        constexpr ImVec4(const MyVec4& f) : x(f.x), y(f.y), z(f.z), w(f.w) {}   \
-        operator MyVec4() const { return MyVec4(x,y,z,w); }
-*/
+        constexpr ImVec4(const float4& f) : x(f.x), y(f.y), z(f.z), w(f.w) {}   \
+        operator float4() const { return float4(x,y,z,w); }
+		
+//---- ...Or use Dear ImGui's own very basic math operators.
+//#define IMGUI_DEFINE_MATH_OPERATORS
 
 //---- Use 32-bit vertex indices (default is 16-bit) is one way to allow large meshes with more than 64K vertices.
 // Your renderer backend will need to support it (most example renderer backends support both 16/32-bit indices).
@@ -110,11 +111,6 @@
 // (use 'Metrics->Tools->Item Picker' to pick widgets with the mouse and break into them for easy debugging.)
 //#define IM_DEBUG_BREAK  IM_ASSERT(0)
 #define IM_DEBUG_BREAK() __debugbreak()
-
-//---- Debug Tools: Have the Item Picker break in the ItemAdd() function instead of ItemHoverable(),
-// (which comes earlier in the code, will catch a few extra items, allow picking items other than Hovered one.)
-// This adds a small runtime cost which is why it is not enabled by default.
-//#define IMGUI_DEBUG_TOOL_ITEM_PICKER_EX
 
 //---- Debug Tools: Enable slower asserts
 //#define IMGUI_DEBUG_PARANOID

@@ -294,13 +294,15 @@ static int ImGui_ImplGlfw_KeyToModifier(int key)
     return 0;
 }
 
-static void ImGui_ImplGlfw_UpdateKeyModifiers(int mods)
+// X11 does not include current pressed/released modifier key in 'mods' flags submitted by GLFW
+// See https://github.com/ocornut/imgui/issues/6034 and https://github.com/glfw/glfw/issues/1630
+static void ImGui_ImplGlfw_UpdateKeyModifiers(GLFWwindow* window)
 {
     ImGuiIO& io = ImGui::GetIO();
-    io.AddKeyEvent(ImGuiKey_ModCtrl, (mods & GLFW_MOD_CONTROL) != 0);
-    io.AddKeyEvent(ImGuiKey_ModShift, (mods & GLFW_MOD_SHIFT) != 0);
-    io.AddKeyEvent(ImGuiKey_ModAlt, (mods & GLFW_MOD_ALT) != 0);
-    io.AddKeyEvent(ImGuiKey_ModSuper, (mods & GLFW_MOD_SUPER) != 0);
+    io.AddKeyEvent(ImGuiMod_Ctrl,  (glfwGetKey(window, GLFW_KEY_LEFT_CONTROL) == GLFW_PRESS) || (glfwGetKey(window, GLFW_KEY_RIGHT_CONTROL) == GLFW_PRESS));
+    io.AddKeyEvent(ImGuiMod_Shift, (glfwGetKey(window, GLFW_KEY_LEFT_SHIFT)   == GLFW_PRESS) || (glfwGetKey(window, GLFW_KEY_RIGHT_SHIFT)   == GLFW_PRESS));
+    io.AddKeyEvent(ImGuiMod_Alt,   (glfwGetKey(window, GLFW_KEY_LEFT_ALT)     == GLFW_PRESS) || (glfwGetKey(window, GLFW_KEY_RIGHT_ALT)     == GLFW_PRESS));
+    io.AddKeyEvent(ImGuiMod_Super, (glfwGetKey(window, GLFW_KEY_LEFT_SUPER)   == GLFW_PRESS) || (glfwGetKey(window, GLFW_KEY_RIGHT_SUPER)   == GLFW_PRESS));
 }
 
 void ImGui_ImplGlfw_MouseButtonCallback(GLFWwindow* window, int button, int action, int mods)
@@ -311,7 +313,7 @@ void ImGui_ImplGlfw_MouseButtonCallback(GLFWwindow* window, int button, int acti
 	
 	if (!_interaction_enabled) return;
 
-    ImGui_ImplGlfw_UpdateKeyModifiers(mods);
+    ImGui_ImplGlfw_UpdateKeyModifiers(window);
 
     ImGuiIO& io = ImGui::GetIO();
     if (button >= 0 && button < ImGuiMouseButton_COUNT)
@@ -372,7 +374,7 @@ void ImGui_ImplGlfw_KeyCallback(GLFWwindow* window, int keycode, int scancode, i
     // Workaround: X11 does not include current pressed/released modifier key in 'mods' flags. https://github.com/glfw/glfw/issues/1630
     if (int keycode_to_mod = ImGui_ImplGlfw_KeyToModifier(keycode))
         mods = (action == GLFW_PRESS) ? (mods | keycode_to_mod) : (mods & ~keycode_to_mod);
-    ImGui_ImplGlfw_UpdateKeyModifiers(mods);
+    ImGui_ImplGlfw_UpdateKeyModifiers(window);
 
     if (keycode >= 0 && keycode < IM_ARRAYSIZE(bd->KeyOwnerWindows))
         bd->KeyOwnerWindows[keycode] = (action == GLFW_PRESS) ? window : NULL;

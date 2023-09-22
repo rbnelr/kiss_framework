@@ -346,19 +346,26 @@ namespace kissmath {
 		return h;
 	} 
 
-	inline uint64_t hash (int         i, uint64_t seed=0) {      return MurmurHash64A_fixedlen<sizeof(i)>((uint32_t const*)&i, seed); };
-	inline uint64_t hash (int2 const& v, uint64_t seed=0) {      return MurmurHash64A_fixedlen<sizeof(v)>((uint32_t const*)&v, seed); };
-	inline uint64_t hash (int3 const& v, uint64_t seed=0) {      return MurmurHash64A_fixedlen<sizeof(v)>((uint32_t const*)&v, seed); };
-	inline uint64_t hash (int4 const& v, uint64_t seed=0) {      return MurmurHash64A_fixedlen<sizeof(v)>((uint32_t const*)&v, seed); };
+	inline uint64_t hash (int         i, uint64_t seed=0) {      return MurmurHash64A_fixedlen<sizeof(i)>(&i, seed); };
+	inline uint64_t hash (int2 const& v, uint64_t seed=0) {      return MurmurHash64A_fixedlen<sizeof(v)>(&v, seed); };
+	inline uint64_t hash (int3 const& v, uint64_t seed=0) {      return MurmurHash64A_fixedlen<sizeof(v)>(&v, seed); };
+	inline uint64_t hash (int4 const& v, uint64_t seed=0) {      return MurmurHash64A_fixedlen<sizeof(v)>(&v, seed); };
 
-	inline uint64_t hash (float         f, uint64_t seed=0) {    return MurmurHash64A_fixedlen<sizeof(f)>((uint32_t const*)&f, seed); };
-	inline uint64_t hash (float2 const& v, uint64_t seed=0) {    return MurmurHash64A_fixedlen<sizeof(v)>((uint32_t const*)&v, seed); };
-	inline uint64_t hash (float3 const& v, uint64_t seed=0) {    return MurmurHash64A_fixedlen<sizeof(v)>((uint32_t const*)&v, seed); };
-	inline uint64_t hash (float4 const& v, uint64_t seed=0) {    return MurmurHash64A_fixedlen<sizeof(v)>((uint32_t const*)&v, seed); };
+	inline uint64_t hash (float         f, uint64_t seed=0) {    return MurmurHash64A_fixedlen<sizeof(f)>(&f, seed); };
+	inline uint64_t hash (float2 const& v, uint64_t seed=0) {    return MurmurHash64A_fixedlen<sizeof(v)>(&v, seed); };
+	inline uint64_t hash (float3 const& v, uint64_t seed=0) {    return MurmurHash64A_fixedlen<sizeof(v)>(&v, seed); };
+	inline uint64_t hash (float4 const& v, uint64_t seed=0) {    return MurmurHash64A_fixedlen<sizeof(v)>(&v, seed); };
 
-	inline uint64_t hash (uint8v2 const& v, uint64_t seed=0) {   return MurmurHash64A_fixedlen<sizeof(v)>(&v.x, seed); };
-	inline uint64_t hash (uint8v3 const& v, uint64_t seed=0) {   return MurmurHash64A_fixedlen<sizeof(v)>(&v.x, seed); };
-	inline uint64_t hash (uint8v4 const& v, uint64_t seed=0) {   return MurmurHash64A_fixedlen<sizeof(v)>(&v.x, seed); };
+	inline uint64_t hash (uint8v2 const& v, uint64_t seed=0) {   return MurmurHash64A_fixedlen<sizeof(v)>(&v, seed); };
+	inline uint64_t hash (uint8v3 const& v, uint64_t seed=0) {   return MurmurHash64A_fixedlen<sizeof(v)>(&v, seed); };
+	inline uint64_t hash (uint8v4 const& v, uint64_t seed=0) {   return MurmurHash64A_fixedlen<sizeof(v)>(&v, seed); };
+	
+	template <typename T>
+	struct StructHasher {
+		size_t operator() (T const& x) const {
+			return MurmurHash64A_fixedlen<sizeof(x)>((uint32_t const*)&x, 0);
+		}
+	};
 }
 
 namespace std {
@@ -372,8 +379,6 @@ namespace std {
 	template<> struct hash<kissmath::uint8v3> { size_t operator() (kissmath::uint8v3 const& x) const { return kissmath::hash(x); } };
 	template<> struct hash<kissmath::uint8v4> { size_t operator() (kissmath::uint8v4 const& x) const { return kissmath::hash(x); } };
 
-	//struct StructHasher
-	//template<> struct hash<kissmath::uint8v4> { size_t operator() (kissmath::uint8v4 const& x) const { return kissmath::hash(x); } };
 }
 
 using namespace kissmath;
