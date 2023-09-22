@@ -36,7 +36,7 @@
 #include <string>
 #include "assert.h"
 
-#include "smhasher/MurmurHash2.h"
+#include "macros.hpp"
 
 namespace kissmath {
 	
@@ -283,10 +283,13 @@ namespace kissmath {
 	}
 #endif
 
+#if 0
+	// Technically this is not safe since it does uint64 reads of possibly unaligned data, which is not supported on all platforms(?)
+
 	// Turns out that my MurmurHash1_32 code above was inlined and optimized into efficient code
 	// but this hash function retains the loops in the generated code even though it is inlined
 	// to fix that I made the len a compile time constant template argument, this gets us seperate code to be generated for different lengths
-	// when you want a hash of a variable (or long) length of course use the regular code (MurmurHash64A)
+	// when you want a hash of a variable amount of data of course use the regular code (MurmurHash64A)
 	template <int LEN>
 	uint64_t MurmurHash64A_fixedlen ( const void * key, uint64_t seed )
 	{
@@ -305,12 +308,12 @@ namespace kissmath {
 		{
 			uint64_t k = *data++;
 
-			k *= m; 
-			k ^= k >> r; 
-			k *= m; 
+			k *= m;
+			k ^= k >> r;
+			k *= m;
 
 			h ^= k;
-			h *= m; 
+			h *= m;
 		}
 
 		const unsigned char * data2 = (const unsigned char*)data;
@@ -329,10 +332,9 @@ namespace kissmath {
 				h *= m;
 		};
 	#else
-		int i = len & 7;
-		if (i > 0) {
-			while (i > 0) {
-				--i;
+		int remain = len & 7;
+		if (remain > 0) {
+			for (int i=0; i<remain; ++i) {
 				h ^= uint64_t(data2[i]) << (i * 8);
 			}
 			h *= m;
@@ -344,28 +346,75 @@ namespace kissmath {
 		h ^= h >> r;
 
 		return h;
-	} 
+	}
+#endif
 
-	inline uint64_t hash (int         i, uint64_t seed=0) {      return MurmurHash64A_fixedlen<sizeof(i)>(&i, seed); };
-	inline uint64_t hash (int2 const& v, uint64_t seed=0) {      return MurmurHash64A_fixedlen<sizeof(v)>(&v, seed); };
-	inline uint64_t hash (int3 const& v, uint64_t seed=0) {      return MurmurHash64A_fixedlen<sizeof(v)>(&v, seed); };
-	inline uint64_t hash (int4 const& v, uint64_t seed=0) {      return MurmurHash64A_fixedlen<sizeof(v)>(&v, seed); };
+	// Use to build up larger hashes, don't bother with original byte-wise reads of MurmurHash64A
+	// just cast ints, floats etc into uint64_t to combine them, or or two ints into one uint64_t
+	// reading non-aligned memory or non 8 byte block sized end of data should be handles outside of this code (if needed)
+	struct Murmur2_64 {
+		static constexpr uint64_t m = 0xc6a4a7935bd1e995ull;
+		static constexpr int r = 47;
+		
+		uint64_t hash;
 
-	inline uint64_t hash (float         f, uint64_t seed=0) {    return MurmurHash64A_fixedlen<sizeof(f)>(&f, seed); };
-	inline uint64_t hash (float2 const& v, uint64_t seed=0) {    return MurmurHash64A_fixedlen<sizeof(v)>(&v, seed); };
-	inline uint64_t hash (float3 const& v, uint64_t seed=0) {    return MurmurHash64A_fixedlen<sizeof(v)>(&v, seed); };
-	inline uint64_t hash (float4 const& v, uint64_t seed=0) {    return MurmurHash64A_fixedlen<sizeof(v)>(&v, seed); };
+		// data_length was the number of bytes hashed total in the original
+		// I think this is just to avoid the hash being zero, since the rotate xor step is a no-op with zeros
+		// note: some murmur hashes essentially just set hash=seed and add the length last
+		_FORCEINLINE Murmur2_64 (uint64_t seed, uint64_t data_length) {
+			hash = seed ^ (data_length * m);
+		}
 
-	inline uint64_t hash (uint8v2 const& v, uint64_t seed=0) {   return MurmurHash64A_fixedlen<sizeof(v)>(&v, seed); };
-	inline uint64_t hash (uint8v3 const& v, uint64_t seed=0) {   return MurmurHash64A_fixedlen<sizeof(v)>(&v, seed); };
-	inline uint64_t hash (uint8v4 const& v, uint64_t seed=0) {   return MurmurHash64A_fixedlen<sizeof(v)>(&v, seed); };
+		_FORCEINLINE void add (uint64_t data) {
+			data *= m;
+			data ^= data >> r;
+			data *= m;
 	
-	template <typename T>
-	struct StructHasher {
-		size_t operator() (T const& x) const {
-			return MurmurHash64A_fixedlen<sizeof(x)>((uint32_t const*)&x, 0);
+			hash ^= data;
+			hash *= m;
+		}
+
+		_FORCEINLINE uint64_t end () {
+			hash ^= hash >> r;
+			hash *= m;
+			hash ^= hash >> r;
+
+			return hash;
 		}
 	};
+	
+	inline uint64_t hash_get_bits (uint64_t val) {     return val; }
+	inline uint64_t hash_get_bits (void const* ptr) {  return (uint64_t)ptr; }
+	inline uint64_t hash_get_bits (uint32_t val) {     return (uint64_t)val; }
+	inline uint64_t hash_get_bits (uint16_t val) {     return (uint64_t)val; }
+	inline uint64_t hash_get_bits (uint8_t  val) {     return (uint64_t)val; }
+	inline uint64_t hash_get_bits (int val) {          return (uint64_t)val; }
+	inline uint64_t hash_get_bits (float val) {        return (uint64_t)val; }
+	inline uint64_t hash_get_bits (double val) {       return (uint64_t)val; }
+	inline uint64_t hash_get_bits (bool val) {         return (uint64_t)val; }
+
+	inline uint64_t hash_get_bits (int a, int b) {     return (uint64_t)a | ((uint64_t)b << 32); }
+	inline uint64_t hash_get_bits (float a, float b) { return (uint64_t)a | ((uint64_t)b << 32); }
+
+	//// Fixed size hash function
+	template <typename... ARGS>
+	_FORCEINLINE uint64_t hash_values (uint64_t seed, ARGS... vals) {
+		Murmur2_64 hash(seed, sizeof...(vals)); // not sure if number of args is ok to pass instead of number of bytes, but I think it works just fine
+		(hash.add(hash_get_bits(vals)), ...);
+		return hash.end();
+	}
+
+	inline uint64_t hash (int         i, uint64_t seed=0) {      return hash_values(seed, i); };
+	inline uint64_t hash (int2 const& v, uint64_t seed=0) {      return hash_values(seed, hash_get_bits(v.x, v.y)); };
+	inline uint64_t hash (int3 const& v, uint64_t seed=0) {      return hash_values(seed, hash_get_bits(v.x, v.y), v.z); };
+	inline uint64_t hash (int4 const& v, uint64_t seed=0) {      return hash_values(seed, hash_get_bits(v.x, v.y), hash_get_bits(v.z, v.w)); };
+
+	inline uint64_t hash (float         f, uint64_t seed=0) {    return hash_values(seed, f); };
+	inline uint64_t hash (float2 const& v, uint64_t seed=0) {    return hash_values(seed, hash_get_bits(v.x, v.y)); };
+	inline uint64_t hash (float3 const& v, uint64_t seed=0) {    return hash_values(seed, hash_get_bits(v.x, v.y), v.z); };
+	inline uint64_t hash (float4 const& v, uint64_t seed=0) {    return hash_values(seed, hash_get_bits(v.x, v.y), hash_get_bits(v.z, v.w)); };
+
+#define VALUE_HASHER(type, ...) struct type##Hasher { size_t operator() (type const& t) const { return hash_values(0, __VA_ARGS__); } }
 }
 
 namespace std {
@@ -375,9 +424,6 @@ namespace std {
 	template<> struct hash<kissmath::float2 > { size_t operator() (kissmath::float2  const& x) const { return kissmath::hash(x); } };
 	template<> struct hash<kissmath::float3 > { size_t operator() (kissmath::float3  const& x) const { return kissmath::hash(x); } };
 	template<> struct hash<kissmath::float4 > { size_t operator() (kissmath::float4  const& x) const { return kissmath::hash(x); } };
-	template<> struct hash<kissmath::uint8v2> { size_t operator() (kissmath::uint8v2 const& x) const { return kissmath::hash(x); } };
-	template<> struct hash<kissmath::uint8v3> { size_t operator() (kissmath::uint8v3 const& x) const { return kissmath::hash(x); } };
-	template<> struct hash<kissmath::uint8v4> { size_t operator() (kissmath::uint8v4 const& x) const { return kissmath::hash(x); } };
 
 }
 

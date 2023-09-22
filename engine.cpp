@@ -9,8 +9,6 @@
 #include "opengl.hpp"
 #include "GLFW/glfw3.h"
 
-#include "app.hpp"
-
 inline int _vsync_on_interval = 1;
 void Engine::set_vsync (bool vsync) {
 	this->vsync = vsync;
