@@ -32,7 +32,7 @@ inline bool save_json (char const* filename, json const& json) {
 }
 
 template <typename T>
-inline bool save (char const* filename, T const& obj) {
+inline bool serialize (char const* filename, T const& obj) {
 	ZoneScoped;
 	json json = obj;
 	return save_json(filename, json);
@@ -65,7 +65,7 @@ inline json load_json (char const* filename) {
 }
 
 template <typename T>
-inline bool load (char const* filename, T* obj) {
+inline bool deserialize (char const* filename, T* obj) {
 	ZoneScoped;
 
 	try {
@@ -81,9 +81,9 @@ inline bool load (char const* filename, T* obj) {
 }
 
 template <typename T>
-inline T load (char const* filename) {
+inline T deserialize (char const* filename) {
 	T t = T();
-	load(filename, &t);
+	deserialize(filename, &t);
 	return t;
 }
 
