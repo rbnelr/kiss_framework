@@ -36,26 +36,14 @@ struct Engine {
 		return CLOSE_NOW;
 	}
 
-	struct WindowPlacement {
-		SERIALIZE(WindowPlacement, pos, size, fullscreen, borderless_fullscreen)
+	int2 window_pos = INT_MIN;
+	int2 window_size = int2(1280, 720);
 
-		// for fullscreen: stores the windowed position so it can be restored
-		int2 pos = -1;
-		int2 size = int2(1280, 720);
-		
-		bool fullscreen = false;
-		bool borderless_fullscreen = true; // use borderless fullscreen as long as the cpu usage (gpu driver?) bug happens on my dev desktop
-	};
+	bool fullscreen = false;
+	bool borderless_fullscreen = true;
 
-	// readonly, call change_window to update window
-	WindowPlacement window_placement;
-	bool restore_window_placement_on_open = true;
-
-	bool set_window_placement (WindowPlacement placement);
+	bool set_fullscreen (bool fullscreen, bool borderless_fullscreen);
 	bool toggle_fullscreen ();
-
-	void serialize_window_placement () const;
-	void deserialize_window_placement ();
 
 	Timing_Histogram fps_display;
 

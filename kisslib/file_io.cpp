@@ -13,6 +13,21 @@ namespace kiss {
 		rewind(f);
 		return file_size;
 	}
+	
+	bool load_binary_file (const char* filename, void* data, uint64_t size) {
+		auto f = fopen(filename, "rb");
+		if (!f)
+			return false;
+
+		uint64_t sz = get_file_size(f);
+		if (sz != size)
+			return false;
+
+		auto ret = fread(data, 1,sz, f);
+
+		fclose(f);
+		return true;
+	}
 
 	raw_data load_binary_file (const char* filename, uint64_t* size) {
 		auto f = fopen(filename, "rb");
@@ -23,7 +38,6 @@ namespace kiss {
 		auto data = std::make_unique<byte[]>(sz);
 
 		auto ret = fread(data.get(), 1,sz, f);
-		assert(ret == sz);
 
 		fclose(f);
 

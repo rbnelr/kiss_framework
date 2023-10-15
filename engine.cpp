@@ -9,6 +9,9 @@
 #include "opengl.hpp"
 #include "GLFW/glfw3.h"
 
+#define GLFW_EXPOSE_NATIVE_WIN32
+#include "GLFW/glfw3native.h"
+
 inline int _vsync_on_interval = 1;
 void Engine::set_vsync (bool vsync) {
 	this->vsync = vsync;
@@ -105,7 +108,7 @@ bool window_setup (Engine& eng, char const* window_title) {
 	glfwWindowHint(GLFW_SRGB_CAPABLE, GLFW_TRUE);
 	//glfwWindowHint(GLFW_FOCUS_ON_SHOW, GLFW_FALSE);
 
-	eng.window = glfwCreateWindow(eng.window_placement.pos.x, eng.window_placement.pos.y, window_title, NULL, NULL);
+	eng.window = glfwCreateWindow(eng.window_size.x, eng.window_size.y, window_title, NULL, NULL);
 	if (!eng.window) {
 		printf("glfwCreateWindow error!");
 		return false;
@@ -189,12 +192,12 @@ void do_imgui (Engine& eng) {
 
 	if (ImGui::Begin("Misc")) {
 		{
-			bool changed = ImGui::Checkbox("fullscreen", &eng.window_placement.fullscreen);
+			bool changed = ImGui::Checkbox("fullscreen", &eng.fullscreen);
 			ImGui::SameLine();
-			changed = ImGui::Checkbox("borderless", &eng.window_placement.borderless_fullscreen) || changed;
+			changed = ImGui::Checkbox("borderless", &eng.borderless_fullscreen) || changed;
 
 			if (changed)
-				eng.set_window_placement(eng.window_placement);
+				eng.set_fullscreen(eng.fullscreen, eng.borderless_fullscreen);
 		}
 
 		ImGui::SameLine();
@@ -308,7 +311,7 @@ struct Monitor {
 	int2	 size;
 };
 
-bool select_monitor_from_window_pos (Engine::WindowPlacement placement, Monitor* selected_monior) {
+bool select_monitor_from_window_pos (int2 pos, int2 size, Monitor* selected_monior) {
 	int count;
 	auto** glfw_monitors = glfwGetMonitors(&count);
 
@@ -316,8 +319,8 @@ bool select_monitor_from_window_pos (Engine::WindowPlacement placement, Monitor*
 	monitors.resize(count);
 
 	auto window_monitor_overlap = [=] (Monitor const& mon) {
-		int2 a = clamp(placement.pos, mon.pos, mon.pos + mon.size);
-		int2 b = clamp(placement.pos + placement.size, mon.pos, mon.pos + mon.size);
+		int2 a = clamp(pos, mon.pos, mon.pos + mon.size);
+		int2 b = clamp(pos + size, mon.pos, mon.pos + mon.size);
 
 		int2 size = b - a;
 		float overlap_area = (float)(size.x * size.y);
@@ -350,14 +353,18 @@ bool select_monitor_from_window_pos (Engine::WindowPlacement placement, Monitor*
 	*selected_monior = *max_overlap_monitor;
 	return true;
 }
-bool Engine::set_window_placement (WindowPlacement placement) {
+bool Engine::set_fullscreen (bool fullscreen, bool borderless_fullscreen) {
 
-	if (placement.fullscreen) {
+	if (fullscreen) {
+		// save window pos
+		glfwGetWindowPos(window, &window_pos.x, &window_pos.y);
+		glfwGetWindowSize(window, &window_size.x, &window_size.y);
+		
 		Monitor monitor;
-		if (!select_monitor_from_window_pos(window_placement, &monitor))
+		if (!select_monitor_from_window_pos(window_pos, window_size, &monitor))
 			return false; // fail
 
-		if (placement.borderless_fullscreen) {
+		if (borderless_fullscreen) {
 			glfwSetWindowAttrib(window, GLFW_DECORATED, GLFW_FALSE);
 			glfwSetWindowMonitor(window, NULL, monitor.pos.x, monitor.pos.y, monitor.size.x, monitor.size.y, GLFW_DONT_CARE);
 		} else {
@@ -366,34 +373,20 @@ bool Engine::set_window_placement (WindowPlacement placement) {
 		}
 	}
 	else {
-		// restore windowed window placement
+		// restore window pos
 		glfwSetWindowAttrib(window, GLFW_DECORATED, GLFW_TRUE);
-		glfwSetWindowMonitor(window, NULL, window_placement.pos.x, window_placement.pos.y,
-			window_placement.size.x, window_placement.size.y, GLFW_DONT_CARE);
-
-		//glfwSetWindowPos(window, window_placement.pos.x, window_placement.pos.y);
-		//glfwSetWindowSize(window, window_placement.size.x, window_placement.size.y);
+		glfwSetWindowMonitor(window, NULL, window_pos.x, window_pos.y, window_size.x, window_size.y, GLFW_DONT_CARE);
 	}
 
 	// reset vsync since it sometimes broke
 	set_vsync(vsync);
 
-	this->window_placement = placement;
+	this->fullscreen = fullscreen;
+	this->borderless_fullscreen = borderless_fullscreen;
 	return true;
 }
 bool Engine::toggle_fullscreen () {
-	auto placement = window_placement;
-	placement.fullscreen = !placement.fullscreen;
-	return set_window_placement(placement);
-}
-
-
-void Engine::serialize_window_placement () const {
-	serialize("window_placement.json", window_placement);
-}
-void Engine::deserialize_window_placement () {
-	if (deserialize("window_placement.json", &window_placement))
-		set_window_placement(window_placement);
+	return set_fullscreen(!fullscreen, borderless_fullscreen);
 }
 
 void Engine::close () {
@@ -557,14 +550,7 @@ void glfw_window_size_event (GLFWwindow* wnd, int width, int height) {
 
 	auto* eng = (Engine*)glfwGetWindowUserPointer(wnd);
 
-	glfwGetWindowSize(wnd, &eng->window_placement.size.x, &eng->window_placement.size.y);
-
 	window_frame(*eng);
-}
-void glfw_window_pos_event (GLFWwindow* wnd, int x, int y) {
-	auto* eng = (Engine*)glfwGetWindowUserPointer(wnd);
-
-	glfwGetWindowPos(wnd, &eng->window_placement.pos.x, &eng->window_placement.pos.y);
 }
 
 void glfw_register_input_callbacks (Engine& eng) {
@@ -576,11 +562,9 @@ void glfw_register_input_callbacks (Engine& eng) {
 	glfwSetMouseButtonCallback(eng.window, glfw_mouse_button_event);
 	glfwSetScrollCallback     (eng.window, glfw_mouse_scroll);
 	glfwSetWindowSizeCallback (eng.window, glfw_window_size_event);
-	glfwSetWindowPosCallback  (eng.window, glfw_window_pos_event);
 
 	// These are not called initially
-	glfwGetWindowSize(eng.window, &eng.window_placement.size.x, &eng.window_placement.size.y);
-	glfwGetWindowPos(eng.window, &eng.window_placement.pos.x, &eng.window_placement.pos.y);
+	glfwGetWindowSize(eng.window, &eng.window_size.x, &eng.window_size.y);
 }
 
 ////
@@ -614,13 +598,29 @@ void Engine::draw_imgui () {
 }
 
 Engine::Engine (const char* window_title) {
-	deserialize_window_placement();
-
 	if (!window_setup(*this, window_title))
 		throw std::runtime_error("GLFW error"); // return return 1 from ctor
+
+	{ // load window placement
+		HWND hwnd = glfwGetWin32Window(window);
+		WINDOWPLACEMENT pl;
+		if (kiss::load_binary_file("window_placement.bin", &pl, sizeof(pl))) {
+			SetWindowPlacement(hwnd, &pl);
+		}
+	}
 }
 Engine::~Engine () {
-	serialize_window_placement();
+	{ // save window placement
+		// swtich back to windowed so we don't save bogus fullscreen borderless placement
+		if (fullscreen)
+			set_fullscreen(false, borderless_fullscreen);
+
+		HWND hwnd = glfwGetWin32Window(window);
+		WINDOWPLACEMENT pl = {};
+		if (GetWindowPlacement(hwnd, &pl)) {
+			kiss::save_binary_file("window_placement.bin", &pl, sizeof(pl));
+		}
+	}
 	
 	window_shutdown(*this);
 }

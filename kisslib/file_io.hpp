@@ -9,9 +9,14 @@ namespace kiss {
 
 	typedef unsigned char byte;
 	typedef std::unique_ptr<byte[]> raw_data;
+	
+	// load fixed size data (fails unless file size matches exactly)
+	bool load_binary_file (const char* filename, void* data, uint64_t size);
 
+	// load entire file
 	raw_data load_binary_file (const char* filename, uint64_t* size);
 
+	// overwrite entire file
 	bool save_binary_file (const char* filename, void const* data, uint64_t size);
 
 	// reads text file into a std::string (overwriting it's previous contents)
