@@ -395,6 +395,13 @@ namespace kissmath {
 
 	inline uint64_t hash_get_bits (int a, int b) {     return (uint64_t)a | ((uint64_t)b << 32); }
 	inline uint64_t hash_get_bits (float a, float b) { return (uint64_t)a | ((uint64_t)b << 32); }
+	
+	inline uint64_t hash_get_bits (uint32_t a, uint32_t b) {
+		return (uint64_t)a | ((uint64_t)b << 32);
+	}
+	inline uint64_t hash_get_bits (uint16_t a, uint16_t b, uint16_t c, uint16_t d) {
+		return (uint64_t)a | ((uint64_t)b << 16) | ((uint64_t)c << 32) | ((uint64_t)d << 48);
+	}
 
 	//// Fixed size hash function
 	template <typename... ARGS>
