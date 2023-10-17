@@ -2,6 +2,8 @@
 
 ////// Inline definitions
 
+#include "xmmintrin.h"
+
 namespace kissmath {
 	
 	// wrap x into range [0,range)
@@ -27,6 +29,7 @@ namespace kissmath {
 		return modulo + a;
 	}
 	
+#if 0
 	// returns the greater value of a and b
 	inline constexpr float min (float l, float r) {
 		return l <= r ? l : r;
@@ -36,22 +39,33 @@ namespace kissmath {
 	inline constexpr float max (float l, float r) {
 		return l >= r ? l : r;
 	}
+#else
+	// returns the greater value of a and b
+	inline float min (float l, float r) {
+		return _mm_cvtss_f32( _mm_min_ss(_mm_set_ss(l), _mm_set_ss(r)) );
+	}
+	
+	// returns the smaller value of a and b
+	inline float max (float l, float r) {
+		return _mm_cvtss_f32( _mm_max_ss(_mm_set_ss(l), _mm_set_ss(r)) );
+	}
+#endif
 	
 	// equivalent to ternary c ? l : r
 	// for conformity with vectors
-	inline constexpr float select (bool c, float l, float r) {
+	inline float select (bool c, float l, float r) {
 		return c ? l : r;
 	}
 	
 	// clamp x into range [a, b]
 	// equivalent to min(max(x,a), b)
-	inline constexpr float clamp (float x, float a, float b) {
+	inline float clamp (float x, float a, float b) {
 		return min(max(x, a), b);
 	}
 	
 	// clamp x into range [0, 1]
 	// also known as saturate in hlsl
-	inline constexpr float clamp (float x) {
+	inline float clamp (float x) {
 		return min(max(x, float(0)), float(1));
 	}
 	

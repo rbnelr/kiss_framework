@@ -25,22 +25,22 @@ namespace kissmath {
 	inline float wrap (float x, float a, float b);
 	
 	// returns the greater value of a and b
-	inline constexpr float min (float l, float r);
+	inline float min (float l, float r);
 	
 	// returns the smaller value of a and b
-	inline constexpr float max (float l, float r);
+	inline float max (float l, float r);
 	
 	// equivalent to ternary c ? l : r
 	// for conformity with vectors
-	inline constexpr float select (bool c, float l, float r);
+	inline float select (bool c, float l, float r);
 	
 	// clamp x into range [a, b]
 	// equivalent to min(max(x,a), b)
-	inline constexpr float clamp (float x, float a, float b);
+	inline float clamp (float x, float a, float b);
 	
 	// clamp x into range [0, 1]
 	// also known as saturate in hlsl
-	inline constexpr float clamp (float x);
+	inline float clamp (float x);
 	
 	
 	//// Math constants
