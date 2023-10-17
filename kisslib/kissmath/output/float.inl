@@ -3,6 +3,7 @@
 ////// Inline definitions
 
 #include "xmmintrin.h"
+#include "immintrin.h"
 
 namespace kissmath {
 	
@@ -29,27 +30,15 @@ namespace kissmath {
 		return modulo + a;
 	}
 	
-#if 0
-	// returns the greater value of a and b
-	inline constexpr float min (float l, float r) {
-		return l <= r ? l : r;
-	}
-	
-	// returns the smaller value of a and b
-	inline constexpr float max (float l, float r) {
-		return l >= r ? l : r;
-	}
-#else
 	// returns the greater value of a and b
 	inline float min (float l, float r) {
-		return _mm_cvtss_f32( _mm_min_ss(_mm_set_ss(l), _mm_set_ss(r)) );
+		return l < r ? l : r; // can be optimized into minss (SSE) (though sometimes it results in branches for some reason)
 	}
 	
 	// returns the smaller value of a and b
 	inline float max (float l, float r) {
-		return _mm_cvtss_f32( _mm_max_ss(_mm_set_ss(l), _mm_set_ss(r)) );
+		return l > r ? l : r;
 	}
-#endif
 	
 	// equivalent to ternary c ? l : r
 	// for conformity with vectors
