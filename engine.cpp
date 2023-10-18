@@ -22,6 +22,8 @@ inline Engine::ShouldClose _should_close = Engine::CLOSE_CANCEL;
 
 //// Imgui stuff
 void imgui_setup (Engine& eng) {
+	ZoneScoped;
+
 	// Setup Dear ImGui context
 	IMGUI_CHECKVERSION();
 	ImGui::CreateContext();
@@ -36,6 +38,8 @@ void imgui_setup (Engine& eng) {
 	ImGui_ImplOpenGL3_Init();
 }
 void imgui_shutdown (Engine& eng) {
+	ZoneScoped;
+
 	ImGui_ImplOpenGL3_Shutdown();
 	ImGui_ImplGlfw_Shutdown();
 	ImGui::DestroyContext();
@@ -80,38 +84,45 @@ void create_cursors (Engine& eng);
 bool window_setup (Engine& eng, char const* window_title) {
 	ZoneScoped;
 
-	if (!glfwInit()) {
-		printf("glfwInit error!");
-		return false;
+	{
+		ZoneScopedN("glfwInit");
+		if (!glfwInit()) {
+			printf("glfwInit error!");
+			return false;
+		}
 	}
 
 	create_cursors(eng);
 	
-	glfwWindowHint(GLFW_RESIZABLE, 1);
-	glfwWindowHint(GLFW_CLIENT_API, GLFW_OPENGL_API);
+	{
+		ZoneScopedN("glfwCreateWindow");
 
-	glfwWindowHint(GLFW_OPENGL_PROFILE, GLFW_OPENGL_CORE_PROFILE);
-	//glfwWindowHint(GLFW_OPENGL_FORWARD_COMPAT, 1); // glLineWidth generated GL_INVALID_VALUE with GLFW_OPENGL_FORWARD_COMPAT
+		glfwWindowHint(GLFW_RESIZABLE, 1);
+		glfwWindowHint(GLFW_CLIENT_API, GLFW_OPENGL_API);
 
-	// Need Opengl 4.3 for QOL features, hopefully any modern machine supports this
-	glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, 4);
-	glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 3);
+		glfwWindowHint(GLFW_OPENGL_PROFILE, GLFW_OPENGL_CORE_PROFILE);
+		//glfwWindowHint(GLFW_OPENGL_FORWARD_COMPAT, 1); // glLineWidth generated GL_INVALID_VALUE with GLFW_OPENGL_FORWARD_COMPAT
 
-#if RENDERER_WINDOW_FBO_NO_DEPTH
-	glfwWindowHint(GLFW_DEPTH_BITS, 0);
-#endif
-	glfwWindowHint(GLFW_STENCIL_BITS, 0);
+		// Need Opengl 4.3 for QOL features, hopefully any modern machine supports this
+		glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, 4);
+		glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 3);
 
-#if RENDERER_DEBUG_OUTPUT
-	glfwWindowHint(GLFW_OPENGL_DEBUG_CONTEXT, GLFW_TRUE);
-#endif
-	glfwWindowHint(GLFW_SRGB_CAPABLE, GLFW_TRUE);
-	//glfwWindowHint(GLFW_FOCUS_ON_SHOW, GLFW_FALSE);
+	#if RENDERER_WINDOW_FBO_NO_DEPTH
+		glfwWindowHint(GLFW_DEPTH_BITS, 0);
+	#endif
+		glfwWindowHint(GLFW_STENCIL_BITS, 0);
 
-	eng.window = glfwCreateWindow(eng.window_size.x, eng.window_size.y, window_title, NULL, NULL);
-	if (!eng.window) {
-		printf("glfwCreateWindow error!");
-		return false;
+	#if RENDERER_DEBUG_OUTPUT
+		glfwWindowHint(GLFW_OPENGL_DEBUG_CONTEXT, GLFW_TRUE);
+	#endif
+		glfwWindowHint(GLFW_SRGB_CAPABLE, GLFW_TRUE);
+		//glfwWindowHint(GLFW_FOCUS_ON_SHOW, GLFW_FALSE);
+
+		eng.window = glfwCreateWindow(eng.window_size.x, eng.window_size.y, window_title, NULL, NULL);
+		if (!eng.window) {
+			printf("glfwCreateWindow error!");
+			return false;
+		}
 	}
 
 	if (glfwRawMouseMotionSupported())
@@ -120,48 +131,53 @@ bool window_setup (Engine& eng, char const* window_title) {
 	glfw_register_input_callbacks(eng);
 
 	//
-	glfwMakeContextCurrent(eng.window);
-
-	if (!gladLoadGLLoader((GLADloadproc)glfwGetProcAddress)) {
-		printf("gladLoadGLLoader error!");
-		return false;
-	}
-
-#if RENDERER_DEBUG_OUTPUT
-	if (glfwExtensionSupported("GL_ARB_debug_output")) {
-		glDebugMessageCallbackARB(ogl::debug_callback, &eng);
-	#if RENDERER_DEBUG_OUTPUT_BREAKPOINT
-		glEnable(GL_DEBUG_OUTPUT_SYNCHRONOUS_ARB); // Call message on thread that call was made
-	#endif
-	}
-#endif
-
-	if (glfwExtensionSupported("WGL_EXT_swap_control_tear"))
-		_vsync_on_interval = -1;
-
-	eng.set_vsync(eng.vsync);
-
-	// srgb enabled by default if supported
-	// TODO: should I use glfwExtensionSupported or GLAD_GL_ARB_framebuffer_sRGB? does it make a difference?
-	if (glfwExtensionSupported("GL_ARB_framebuffer_sRGB"))
-		glEnable(GL_FRAMEBUFFER_SRGB);
-	else
-		fprintf(stderr, "[OpenGL] No sRGB framebuffers supported! Shading will be wrong!\n");
-
-#if OGL_USE_REVERSE_DEPTH
-	ogl::reverse_depth = glfwExtensionSupported("GL_ARB_clip_control");
-#endif
-
-	//if (	!glfwExtensionSupported("GL_NV_gpu_shader5") ||
-	//	!glfwExtensionSupported("GL_NV_shader_buffer_load")) {
-	//	clog(ERROR, "[OpenGL] GL_NV_gpu_shader5 or GL_NV_shader_buffer_load not supported!\n");
-	//}
-
-	glEnable(GL_TEXTURE_CUBE_MAP_SEAMLESS); // core since 3.2
-	
-	glGetFloatv(GL_MAX_TEXTURE_MAX_ANISOTROPY, &ogl::max_aniso);
-
 	{
+		ZoneScopedN("init opengl");
+
+		glfwMakeContextCurrent(eng.window);
+
+		{
+			ZoneScopedN("gladLoadGLLoader");
+			if (!gladLoadGLLoader((GLADloadproc)glfwGetProcAddress)) {
+				printf("gladLoadGLLoader error!");
+				return false;
+			}
+		}
+
+	#if RENDERER_DEBUG_OUTPUT
+		if (glfwExtensionSupported("GL_ARB_debug_output")) {
+			glDebugMessageCallbackARB(ogl::debug_callback, &eng);
+		#if RENDERER_DEBUG_OUTPUT_BREAKPOINT
+			glEnable(GL_DEBUG_OUTPUT_SYNCHRONOUS_ARB); // Call message on thread that call was made
+		#endif
+		}
+	#endif
+
+		if (glfwExtensionSupported("WGL_EXT_swap_control_tear"))
+			_vsync_on_interval = -1;
+
+		eng.set_vsync(eng.vsync);
+
+		// srgb enabled by default if supported
+		// TODO: should I use glfwExtensionSupported or GLAD_GL_ARB_framebuffer_sRGB? does it make a difference?
+		if (glfwExtensionSupported("GL_ARB_framebuffer_sRGB"))
+			glEnable(GL_FRAMEBUFFER_SRGB);
+		else
+			fprintf(stderr, "[OpenGL] No sRGB framebuffers supported! Shading will be wrong!\n");
+
+	#if OGL_USE_REVERSE_DEPTH
+		ogl::reverse_depth = glfwExtensionSupported("GL_ARB_clip_control");
+	#endif
+
+		//if (	!glfwExtensionSupported("GL_NV_gpu_shader5") ||
+		//	!glfwExtensionSupported("GL_NV_shader_buffer_load")) {
+		//	clog(ERROR, "[OpenGL] GL_NV_gpu_shader5 or GL_NV_shader_buffer_load not supported!\n");
+		//}
+
+		glEnable(GL_TEXTURE_CUBE_MAP_SEAMLESS); // core since 3.2
+	
+		glGetFloatv(GL_MAX_TEXTURE_MAX_ANISOTROPY, &ogl::max_aniso);
+
 		auto* vend = glGetString(GL_VENDOR);
 		auto* rend = glGetString(GL_RENDERER);
 		auto* vers = glGetString(GL_VERSION);
@@ -178,6 +194,8 @@ bool window_setup (Engine& eng, char const* window_title) {
 	return true;
 }
 void window_shutdown (Engine& eng) {
+	ZoneScoped;
+
 	imgui_shutdown(eng);
 	ogl::g_shaders.shutdown();
 	glfwTerminate();
@@ -354,6 +372,7 @@ bool select_monitor_from_window_pos (int2 pos, int2 size, Monitor* selected_moni
 	return true;
 }
 bool Engine::set_fullscreen (bool fullscreen, bool borderless_fullscreen) {
+	ZoneScoped;
 
 	if (fullscreen) {
 		// save window pos
@@ -598,6 +617,8 @@ void Engine::draw_imgui () {
 }
 
 Engine::Engine (const char* window_title) {
+	ZoneScoped;
+
 	if (!window_setup(*this, window_title))
 		throw std::runtime_error("GLFW error"); // return return 1 from ctor
 
@@ -610,6 +631,8 @@ Engine::Engine (const char* window_title) {
 	}
 }
 Engine::~Engine () {
+	ZoneScoped;
+
 	{ // save window placement
 		// swtich back to windowed so we don't save bogus fullscreen borderless placement
 		if (fullscreen)
