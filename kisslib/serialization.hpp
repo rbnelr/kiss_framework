@@ -61,7 +61,7 @@ inline bool load_json (char const* filename, json* j) {
 inline json load_json (char const* filename) {
 	json j;
 	load_json(filename, &j);
-	return std::move(j);
+	return j;
 }
 
 template <typename T>

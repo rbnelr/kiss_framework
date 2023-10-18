@@ -225,6 +225,7 @@ namespace shader {
 		bool wireframe = false;
 		
 		inline void shutdown () {
+			ZoneScoped;
 			shaders.clear();
 		}
 	
@@ -763,7 +764,8 @@ inline void _debug_vao (std::string msg="") {
 			msg.append( "  attrib #" + std::to_string( i ) + ": VBO=" + std::to_string( vaabb ) + "\n" );
 		}
 	}
-	printf( msg.c_str() );
+
+	puts(msg.c_str());
 }
 
 //

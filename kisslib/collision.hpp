@@ -159,14 +159,14 @@ inline bool plane_cull_aabb (Plane const& plane, AABB3 const& aabb) {
 	float3 lo = aabb.lo - plane.pos;
 	float3 hi = aabb.hi - plane.pos;
 
-	if (dot(plane.normal, float3(aabb.lo.x, aabb.lo.y, aabb.lo.z)) <= 0) return false;
-	if (dot(plane.normal, float3(aabb.hi.x, aabb.lo.y, aabb.lo.z)) <= 0) return false;
-	if (dot(plane.normal, float3(aabb.lo.x, aabb.hi.y, aabb.lo.z)) <= 0) return false;
-	if (dot(plane.normal, float3(aabb.hi.x, aabb.hi.y, aabb.lo.z)) <= 0) return false;
-	if (dot(plane.normal, float3(aabb.lo.x, aabb.lo.y, aabb.hi.z)) <= 0) return false;
-	if (dot(plane.normal, float3(aabb.hi.x, aabb.lo.y, aabb.hi.z)) <= 0) return false;
-	if (dot(plane.normal, float3(aabb.lo.x, aabb.hi.y, aabb.hi.z)) <= 0) return false;
-	if (dot(plane.normal, float3(aabb.hi.x, aabb.hi.y, aabb.hi.z)) <= 0) return false;
+	if (dot(plane.normal, float3(lo.x, lo.y, lo.z)) <= 0) return false;
+	if (dot(plane.normal, float3(hi.x, lo.y, lo.z)) <= 0) return false;
+	if (dot(plane.normal, float3(lo.x, hi.y, lo.z)) <= 0) return false;
+	if (dot(plane.normal, float3(hi.x, hi.y, lo.z)) <= 0) return false;
+	if (dot(plane.normal, float3(lo.x, lo.y, hi.z)) <= 0) return false;
+	if (dot(plane.normal, float3(hi.x, lo.y, hi.z)) <= 0) return false;
+	if (dot(plane.normal, float3(lo.x, hi.y, hi.z)) <= 0) return false;
+	if (dot(plane.normal, float3(hi.x, hi.y, hi.z)) <= 0) return false;
 
 	return true;
 }

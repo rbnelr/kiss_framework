@@ -257,7 +257,7 @@ struct Input {
 		float target_sec = 1.0f / max(_max_fps, 1.0f);
 		float freq = (float)kiss::timestamp_freq;
 
-		float remain = target_sec - (float)(kiss::get_timestamp() - frame_begin_ts) / freq;
+		//float remain = target_sec - (float)(kiss::get_timestamp() - frame_begin_ts) / freq;
 		
 		//auto sleep_msecs = (int)(remain * 1000) - 16;
 		//if (sleep_msecs > 0) {

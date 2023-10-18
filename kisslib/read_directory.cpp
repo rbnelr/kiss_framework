@@ -47,7 +47,7 @@ namespace kiss {
 							strcmp(filename.c_str(), "..") == 0 ) {
 						// found directory represents the current directory or the parent directory, don't include this in the output
 					} else {
-						dirnames->emplace_back(std::move( filename +'/' ));
+						dirnames->emplace_back(filename +'/');
 					}
 				} else {
 					filenames->emplace_back(filename);

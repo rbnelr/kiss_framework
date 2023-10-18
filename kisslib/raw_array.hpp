@@ -2,15 +2,6 @@
 #include "stdlib.h"
 #include "assert.h"
 
-namespace {
-	size_t _min (size_t a, size_t b) {
-		return a < b ? a : b;
-	}
-	size_t _max (size_t a, size_t b) {
-		return a > b ? a : b;
-	}
-}
-
 // Array that is implemented with malloc instead of new to avoid default constructors and destructors which can sometimes kill performance
 // replaced unique_ptr<T[]> in my code
 // WARNING: does not call constructors or destructors, using it with any kind of std:: types is NOT safe

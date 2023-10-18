@@ -255,8 +255,6 @@ void DebugDraw::cylinder (float3 const& base, float radius, float height, lrgba 
 namespace shapes {
 	
 	void wire_sphere (std::vector<float3>* vertices, std::vector<uint16_t>* indices, float r, int segments) {
-		int count = 3 * segments;
-
 		auto* vert = push_back(*vertices, 3 * segments);
 		auto* ind = push_back(*indices, 3 * segments*2);
 

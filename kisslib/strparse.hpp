@@ -80,8 +80,6 @@ namespace parse {
 		if (!is_ident_start_c(*c))
 			return false;
 
-		char const* begin = c;
-
 		while (is_ident_c(*c))
 			c++; // find end of identifier
 

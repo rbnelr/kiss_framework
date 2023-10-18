@@ -151,8 +151,6 @@ namespace shader {
 
 			whitespace(c);
 
-			char const* inc_begin = c;
-
 			if (*c == '#') {
 				c++; // skip '#'
 				whitespace(c);
