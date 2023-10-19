@@ -16,7 +16,7 @@
 #define DBG_MEMSET_FREED 0xDD
 
 #ifdef NDEBUG
-	#define DBG_MEMSET
+	#define DBG_MEMSET(...)
 #else
 	#define DBG_MEMSET memset
 #endif
