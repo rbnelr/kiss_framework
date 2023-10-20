@@ -192,3 +192,36 @@ struct Timing_Histogram {
 		}
 	}
 };
+
+
+struct ValuePlotter {
+	circular_buffer<float> values;
+
+	int plot_height = 200;
+
+	ValuePlotter (int count=1000) {
+		values = circular_buffer<float>(count);
+	}
+
+	void update_and_imgui (const char* name, float value, float min, float max, bool default_open=true) {
+		values.push(value);
+		
+		if (ImGui::TreeNodeEx(name, default_open ? ImGuiTreeNodeFlags_DefaultOpen : 0)) {
+			
+			ImGui::SetNextItemWidth(-1);
+			ImGui::PlotLines("##speed_plot", values.data(), (int)values.count(), 0, 0, min, max, float2(0, (float)plot_height));
+
+			if (ImGui::BeginPopupContextItem("##plot popup")) {
+				ImGui::SliderInt("plot_height", &plot_height, 20, 120);
+
+				int count = (int)values.count();
+				if (ImGui::SliderInt("avg_count", &count, 16, 1024)) {
+					values.resize(count);
+				}
+
+				ImGui::EndPopup();
+			}
+			ImGui::TreePop();
+		}
+	}
+};
