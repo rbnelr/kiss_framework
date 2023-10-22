@@ -9,6 +9,31 @@
 #include "kisslib/stl_extensions.hpp"
 #include <vector>
 
+template <typename T, typename FUNC>
+bool imgui_edit_vector (const char* label, std::vector<T>& vec, FUNC item, bool can_resize=true, bool default_open=true) {
+	if (!ImGui::TreeNodeEx(label, default_open ? ImGuiTreeNodeFlags_DefaultOpen : 0)) return false;
+	
+	bool changed = false;
+
+	if (can_resize) {
+		int count = (int)vec.size();
+		if (ImGui::DragInt("count", &count, 0.1f, 0)) {
+			vec.resize(count);
+			changed = true;
+		}
+	}
+
+	for (int i=0; i<(int)vec.size(); ++i) {
+		if (ImGui::TreeNodeEx(&vec[i], 0, "[%d]", i)) {
+			changed = item(vec[i]) || changed;
+			ImGui::TreePop();
+		}
+	}
+
+	ImGui::TreePop();
+	return changed;
+}
+
 inline bool imgui_ColorEdit (const char* label, lrgb* col, ImGuiColorEditFlags flags=0) {
 	float3 srgbf = float3( to_srgb(col->x), to_srgb(col->y), to_srgb(col->z) );
 	bool ret = ImGui::ColorEdit3(label, &srgbf.x, flags);
@@ -195,17 +220,26 @@ struct Timing_Histogram {
 
 
 struct ValuePlotter {
+	// TODO: use circular buffer with fixed number of items
 	circular_buffer<float> values;
 
 	int plot_height = 200;
 
 	ValuePlotter (int count=1000) {
 		values = circular_buffer<float>(count);
+		resize(count);
+	}
+	void resize (int count) {
+		values.resize(count);
+		// init
+		while (values.count() < values.capacity())
+			values.push_or_overwrite(0);
 	}
 
-	void update_and_imgui (const char* name, float value, float min, float max, bool default_open=true) {
-		values.push(value);
-		
+	void push_value (float value) {
+		values.push_or_overwrite(value);
+	}
+	void imgui_display (const char* name, float min, float max, bool default_open=true) {
 		if (ImGui::TreeNodeEx(name, default_open ? ImGuiTreeNodeFlags_DefaultOpen : 0)) {
 			
 			ImGui::SetNextItemWidth(-1);
@@ -215,8 +249,8 @@ struct ValuePlotter {
 				ImGui::SliderInt("plot_height", &plot_height, 20, 120);
 
 				int count = (int)values.count();
-				if (ImGui::SliderInt("avg_count", &count, 16, 1024)) {
-					values.resize(count);
+				if (ImGui::SliderInt("count", &count, 16, 1024)) {
+					resize(count);
 				}
 
 				ImGui::EndPopup();

@@ -29,7 +29,7 @@ public:
 	}
 
 	void push (T val) {
-		buf.push(val);
+		buf.push_or_overwrite(val);
 	}
 
 	T calc_avg (T* out_min=nullptr, T* out_max=nullptr, T* out_std_dev=nullptr) {
