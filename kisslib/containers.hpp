@@ -117,7 +117,7 @@ public:
 		head = cnt % cap;
 	}
 
-	void push (T const& item) {
+	void push_or_overwrite (T const& item) {
 		assert(cap > 0);
 
 		// write in next free slot or overwrite if count == cap
@@ -127,7 +127,7 @@ public:
 		if (cnt < cap)
 			cnt++;
 	}
-	void push (T&& item) {
+	void push_or_overwrite (T&& item) {
 		assert(cap > 0);
 
 		// write in next free slot or overwrite if count == cap
