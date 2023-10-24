@@ -69,6 +69,9 @@ typedef struct {
 	uint32_t  baseInstance;
 } glDrawElementsIndirectCommand;
 
+template <typename IDX_T> inline constexpr GLenum get_gl_idx_type ();
+template<> inline constexpr GLenum get_gl_idx_type<uint16_t> () { return GL_UNSIGNED_SHORT; }
+template<> inline constexpr GLenum get_gl_idx_type<uint32_t> () { return GL_UNSIGNED_INT; }
 
 void APIENTRY debug_callback (GLenum source, GLenum type, GLuint id, GLenum severity, GLsizei length, const char* message, void const* userParam);
 
