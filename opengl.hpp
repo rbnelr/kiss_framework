@@ -1195,6 +1195,30 @@ struct CommonUniforms {
 };
 #endif
 
+inline GLuint make_msaa_tex (std::string_view label, int2 size, GLenum format, int levels=1, int msaa=0) {
+	GLuint tex;
+	glGenTextures(1, &tex);
+
+	if (msaa > 1) {
+		glBindTexture(GL_TEXTURE_2D_MULTISAMPLE, tex);
+		OGL_DBG_LABEL(GL_TEXTURE, tex, label);
+
+		glTexStorage2DMultisample(GL_TEXTURE_2D_MULTISAMPLE, msaa, format, size.x, size.y, GL_TRUE);
+		glTexParameteri(GL_TEXTURE_2D_MULTISAMPLE, GL_TEXTURE_BASE_LEVEL, 0);
+		glTexParameteri(GL_TEXTURE_2D_MULTISAMPLE, GL_TEXTURE_MAX_LEVEL, 0);
+	}
+	else {
+		glBindTexture(GL_TEXTURE_2D, tex);
+		OGL_DBG_LABEL(GL_TEXTURE, tex, label);
+
+		glTexStorage2D(GL_TEXTURE_2D, levels, format, size.x, size.y);
+		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_BASE_LEVEL, 0);
+		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAX_LEVEL, levels-1);
+	}
+
+	return tex;
+}
+
 struct Renderbuffer {
 	MOVE_ONLY_CLASS(Renderbuffer); // No move implemented for now
 public:
@@ -1209,40 +1233,16 @@ public:
 	GLuint col = 0;
 	GLuint depth = 0;
 
-	static GLuint make_tex (std::string_view label, int2 size, GLenum format, int levels=1, int msaa=0) {
-		GLuint tex;
-		glGenTextures(1, &tex);
-		
-		if (msaa > 1) {
-			glBindTexture(GL_TEXTURE_2D_MULTISAMPLE, tex);
-			OGL_DBG_LABEL(GL_TEXTURE, tex, label);
-
-			glTexStorage2DMultisample(GL_TEXTURE_2D_MULTISAMPLE, msaa, format, size.x, size.y, GL_TRUE);
-			glTexParameteri(GL_TEXTURE_2D_MULTISAMPLE, GL_TEXTURE_BASE_LEVEL, 0);
-			glTexParameteri(GL_TEXTURE_2D_MULTISAMPLE, GL_TEXTURE_MAX_LEVEL, 0);
-		}
-		else {
-			glBindTexture(GL_TEXTURE_2D, tex);
-			OGL_DBG_LABEL(GL_TEXTURE, tex, label);
-
-			glTexStorage2D(GL_TEXTURE_2D, levels, format, size.x, size.y);
-			glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_BASE_LEVEL, 0);
-			glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAX_LEVEL, levels-1);
-		}
-
-		return tex;
-	}
-
 	Renderbuffer () {} // not allocated
 	Renderbuffer (std::string_view label, int2 size, GLenum color_format, GLenum depth_format=0, bool color_mips=false, int msaa=1) { // allocate
 		GLint levels = color_mips ? calc_mipmaps(size.x, size.y) : 1;
 
 		std::string lbl = (std::string)label;
 
-		col = make_tex(lbl+".col", size, color_format, levels, msaa);
+		col = make_msaa_tex(lbl+".col", size, color_format, levels, msaa);
 
 		if (depth_format)
-			depth = make_tex(lbl+".depth", size, depth_format, levels, msaa);
+			depth = make_msaa_tex(lbl+".depth", size, depth_format, levels, msaa);
 
 		GLenum msaa_targ = msaa > 1 ? GL_TEXTURE_2D_MULTISAMPLE : GL_TEXTURE_2D;
 		
