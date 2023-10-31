@@ -368,6 +368,7 @@ struct Flycam {
 	float3 rot_aer = 0;
 
 	float vfov = deg(70);
+	float ortho_size = 50;
 
 	float clip_near = 1.0f/32;
 	float clip_far  = 8192;
@@ -378,6 +379,8 @@ struct Flycam {
 	float fast_multiplier = 4;
 
 	float cur_speed = 0;
+
+	bool ortho = false;
 
 	bool planar = true;
 
@@ -391,8 +394,11 @@ struct Flycam {
 		float3 rot_deg = to_degrees(rot_aer);
 		if (ImGui::DragFloat3("rot_aer", &rot_deg.x, 0.3f))
 			rot_aer = to_radians(rot_deg);
+		
+		ImGui::Checkbox("ortho", &ortho);
 
-		ImGui::SliderAngle("vfov", &vfov, 0,180);
+		if (!ortho) ImGui::SliderAngle("vfov", &vfov, 0,180);
+		else        ImGui::DragFloat("ortho_size", &ortho_size, 0.1f, 0, 8000, "%.3f", ImGuiSliderFlags_Logarithmic);
 
 		ImGui::Text("cur_speed: %.3f", cur_speed);
 
@@ -473,7 +479,15 @@ struct Flycam {
 
 		View3D view;
 		// P matrices
-		persp_cam2clip(vfov, aspect, clip_near, clip_far, &view.cam2clip, &view.clip2cam, &frust_size);
+		if (!ortho) {
+			persp_cam2clip(vfov, aspect, clip_near, clip_far, &view.cam2clip, &view.clip2cam, &frust_size);
+		}
+		else {
+			// TODO: debug this
+			ortho_cam2clip(aspect * ortho_size, ortho_size, clip_near, clip_far, &view.cam2clip, &view.clip2cam);
+			frust_size = 1; // TODO: fix frustrum
+		}
+
 		// V matrices
 		view.world2cam = float4x4(world2cam_rot) * float4x4(translate(-pos));
 		view.cam2world = float4x4(translate(pos)) * float4x4(cam2world_rot);

@@ -837,6 +837,8 @@ namespace state {
 		bool wireframe = false;
 		bool wireframe_no_cull = false;
 		bool wireframe_no_blend = false;
+	
+		Vao dummy_vao = {"dummy_vao"};
 
 		PipelineState _override (PipelineState const& s) {
 			PipelineState o = s;
@@ -1195,13 +1197,13 @@ struct CommonUniforms {
 };
 #endif
 
-class Texture2D_MSAA {
+class Render_Texture {
 	GLuint tex = 0;
 public:
-	MOVE_ONLY_CLASS_MEMBER(Texture2D_MSAA, tex);
+	MOVE_ONLY_CLASS_MEMBER(Render_Texture, tex);
 	
-	Texture2D_MSAA () {} // not allocated
-	Texture2D_MSAA (std::string_view label, int2 size, GLenum format, int levels=1, int msaa=0) {
+	Render_Texture () {} // not allocated
+	Render_Texture (std::string_view label, int2 size, GLenum format, int levels=1, int msaa=0) {
 		glGenTextures(1, &tex);
 
 		if (msaa > 1) {
@@ -1211,6 +1213,10 @@ public:
 			glTexStorage2DMultisample(GL_TEXTURE_2D_MULTISAMPLE, msaa, format, size.x, size.y, GL_TRUE);
 			glTexParameteri(GL_TEXTURE_2D_MULTISAMPLE, GL_TEXTURE_BASE_LEVEL, 0);
 			glTexParameteri(GL_TEXTURE_2D_MULTISAMPLE, GL_TEXTURE_MAX_LEVEL, 0);
+			glTexParameterf(GL_TEXTURE_2D_MULTISAMPLE, GL_TEXTURE_MAG_FILTER, GL_LINEAR); // Avoid supposed fbo incomplete error possible from this
+			glTexParameterf(GL_TEXTURE_2D_MULTISAMPLE, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+
+			glBindTexture(GL_TEXTURE_2D_MULTISAMPLE, 0);
 		}
 		else {
 			glBindTexture(GL_TEXTURE_2D, tex);
@@ -1219,9 +1225,13 @@ public:
 			glTexStorage2D(GL_TEXTURE_2D, levels, format, size.x, size.y);
 			glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_BASE_LEVEL, 0);
 			glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAX_LEVEL, levels-1);
+			glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+			glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+
+			glBindTexture(GL_TEXTURE_2D, 0);
 		}
 	}
-	~Texture2D_MSAA () {
+	~Render_Texture () {
 		if (tex) glDeleteTextures(1, &tex);
 	}
 
@@ -1235,23 +1245,65 @@ public:
 	static void swap (Renderbuffer& l, Renderbuffer& r) {
 		std::swap(l.fbo, r.fbo);
 		std::swap(l.col, r.col);
+	}
+
+	Fbo fbo = {};
+	Render_Texture col = {};
+
+	Renderbuffer () {} // not allocated
+	Renderbuffer (std::string_view label, int2 size, GLenum color_format, bool mips=false, int msaa=1) { // allocate
+		GLint levels = mips ? calc_mipmaps(size.x, size.y) : 1;
+
+		std::string lbl = (std::string)label;
+
+		col = Render_Texture(lbl+".col", size, color_format, levels, msaa);
+
+		GLenum msaa_targ = msaa > 1 ? GL_TEXTURE_2D_MULTISAMPLE : GL_TEXTURE_2D;
+		
+		{
+			fbo = Fbo(lbl+".fbo");
+			glBindFramebuffer(GL_FRAMEBUFFER, fbo);
+
+			glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, msaa_targ, col, 0);
+
+			GLuint bufs[] = { GL_COLOR_ATTACHMENT0 };
+			glDrawBuffers(ARRLEN(bufs), bufs);
+		
+			GLenum status = glCheckFramebufferStatus(GL_FRAMEBUFFER);
+			if (status != GL_FRAMEBUFFER_COMPLETE) {
+				fprintf(stderr, "glCheckFramebufferStatus: %x\n", status);
+			}
+		}
+
+		glBindFramebuffer(GL_FRAMEBUFFER, 0);
+		glBindTexture(msaa_targ, 0);
+	}
+};
+
+struct RenderbufferWithDepth {
+	MOVE_ONLY_CLASS(RenderbufferWithDepth); // No move implemented for now
+public:
+
+	static void swap (RenderbufferWithDepth& l, RenderbufferWithDepth& r) {
+		std::swap(l.fbo, r.fbo);
+		std::swap(l.col, r.col);
 		std::swap(l.depth, r.depth);
 	}
 
 	Fbo fbo = {};
-	Texture2D_MSAA col = {};
-	Texture2D_MSAA depth = {};
+	Render_Texture col = {};
+	Render_Texture depth = {};
 
-	Renderbuffer () {} // not allocated
-	Renderbuffer (std::string_view label, int2 size, GLenum color_format, GLenum depth_format=0, bool color_mips=false, int msaa=1) { // allocate
+	RenderbufferWithDepth () {} // not allocated
+	RenderbufferWithDepth (std::string_view label, int2 size, GLenum color_format, GLenum depth_format=0, bool color_mips=false, int msaa=1) { // allocate
 		GLint levels = color_mips ? calc_mipmaps(size.x, size.y) : 1;
 
 		std::string lbl = (std::string)label;
 
-		col = Texture2D_MSAA(lbl+".col", size, color_format, levels, msaa);
+		col = Render_Texture(lbl+".col", size, color_format, levels, msaa);
 
 		if (depth_format)
-			depth = Texture2D_MSAA(lbl+".depth", size, depth_format, levels, msaa);
+			depth = Render_Texture(lbl+".depth", size, depth_format, levels, msaa);
 
 		GLenum msaa_targ = msaa > 1 ? GL_TEXTURE_2D_MULTISAMPLE : GL_TEXTURE_2D;
 		
@@ -1276,8 +1328,8 @@ public:
 
 // framebuffer for rendering at different resolution and to make sure we get float buffers
 struct FramebufferTexture {
-	Renderbuffer fbo_MSAA = {}; // msaa>1 ?   MSAA textures : normal textures
-	Renderbuffer fbo      = {}; // msaa>1 ? normal textures : 0
+	RenderbufferWithDepth fbo_MSAA = {}; // msaa>1 ?   MSAA textures : normal textures
+	RenderbufferWithDepth fbo      = {}; // msaa>1 ? normal textures : 0
 	
 	render::RenderScale renderscale;
 
@@ -1299,11 +1351,11 @@ struct FramebufferTexture {
 			// create new
 
 			if (renderscale.MSAA > 1) {
-				fbo_MSAA  = Renderbuffer("fbo.MSAA", renderscale.size, color_format, depth_format, false, renderscale.MSAA);
-				fbo       = Renderbuffer("fbo",      renderscale.size, color_format, 0, color_mips, 1);
+				fbo_MSAA  = RenderbufferWithDepth("fbo.MSAA", renderscale.size, color_format, depth_format, false, renderscale.MSAA);
+				fbo       = RenderbufferWithDepth("fbo",      renderscale.size, color_format, 0, color_mips, 1);
 			}
 			else {
-				fbo       = Renderbuffer("fbo",      renderscale.size, color_format, depth_format, color_mips, 1);
+				fbo       = RenderbufferWithDepth("fbo",      renderscale.size, color_format, depth_format, color_mips, 1);
 				// leave fbo_resolve as 0
 			}
 		}
@@ -1365,6 +1417,17 @@ struct FramebufferTexture {
 		return renderscale.nearest ? fbo_sampler_nearest : fbo_sampler;
 	}
 };
+
+inline void draw_fullscreen_triangle (StateManager& state) {
+	PipelineState s;
+	s.depth_test   = false;
+	s.depth_write  = false;
+	s.blend_enable = false;
+	state.set_no_override(s);
+		
+	glBindVertexArray(state.dummy_vao);
+	glDrawArrays(GL_TRIANGLES, 0, 3);
+}
 
 // take screenshot of current bound framebuffer
 void take_screenshot (int2 size);
