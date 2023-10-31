@@ -1195,29 +1195,38 @@ struct CommonUniforms {
 };
 #endif
 
-inline GLuint make_msaa_tex (std::string_view label, int2 size, GLenum format, int levels=1, int msaa=0) {
-	GLuint tex;
-	glGenTextures(1, &tex);
+class Texture2D_MSAA {
+	GLuint tex = 0;
+public:
+	MOVE_ONLY_CLASS_MEMBER(Texture2D_MSAA, tex);
+	
+	Texture2D_MSAA () {} // not allocated
+	Texture2D_MSAA (std::string_view label, int2 size, GLenum format, int levels=1, int msaa=0) {
+		glGenTextures(1, &tex);
 
-	if (msaa > 1) {
-		glBindTexture(GL_TEXTURE_2D_MULTISAMPLE, tex);
-		OGL_DBG_LABEL(GL_TEXTURE, tex, label);
+		if (msaa > 1) {
+			glBindTexture(GL_TEXTURE_2D_MULTISAMPLE, tex);
+			OGL_DBG_LABEL(GL_TEXTURE, tex, label);
 
-		glTexStorage2DMultisample(GL_TEXTURE_2D_MULTISAMPLE, msaa, format, size.x, size.y, GL_TRUE);
-		glTexParameteri(GL_TEXTURE_2D_MULTISAMPLE, GL_TEXTURE_BASE_LEVEL, 0);
-		glTexParameteri(GL_TEXTURE_2D_MULTISAMPLE, GL_TEXTURE_MAX_LEVEL, 0);
+			glTexStorage2DMultisample(GL_TEXTURE_2D_MULTISAMPLE, msaa, format, size.x, size.y, GL_TRUE);
+			glTexParameteri(GL_TEXTURE_2D_MULTISAMPLE, GL_TEXTURE_BASE_LEVEL, 0);
+			glTexParameteri(GL_TEXTURE_2D_MULTISAMPLE, GL_TEXTURE_MAX_LEVEL, 0);
+		}
+		else {
+			glBindTexture(GL_TEXTURE_2D, tex);
+			OGL_DBG_LABEL(GL_TEXTURE, tex, label);
+
+			glTexStorage2D(GL_TEXTURE_2D, levels, format, size.x, size.y);
+			glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_BASE_LEVEL, 0);
+			glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAX_LEVEL, levels-1);
+		}
 	}
-	else {
-		glBindTexture(GL_TEXTURE_2D, tex);
-		OGL_DBG_LABEL(GL_TEXTURE, tex, label);
-
-		glTexStorage2D(GL_TEXTURE_2D, levels, format, size.x, size.y);
-		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_BASE_LEVEL, 0);
-		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAX_LEVEL, levels-1);
+	~Texture2D_MSAA () {
+		if (tex) glDeleteTextures(1, &tex);
 	}
 
-	return tex;
-}
+	operator GLuint () const { return tex; }
+};
 
 struct Renderbuffer {
 	MOVE_ONLY_CLASS(Renderbuffer); // No move implemented for now
@@ -1229,9 +1238,9 @@ public:
 		std::swap(l.depth, r.depth);
 	}
 
-	GLuint fbo = 0;
-	GLuint col = 0;
-	GLuint depth = 0;
+	Fbo fbo = {};
+	Texture2D_MSAA col = {};
+	Texture2D_MSAA depth = {};
 
 	Renderbuffer () {} // not allocated
 	Renderbuffer (std::string_view label, int2 size, GLenum color_format, GLenum depth_format=0, bool color_mips=false, int msaa=1) { // allocate
@@ -1239,17 +1248,16 @@ public:
 
 		std::string lbl = (std::string)label;
 
-		col = make_msaa_tex(lbl+".col", size, color_format, levels, msaa);
+		col = Texture2D_MSAA(lbl+".col", size, color_format, levels, msaa);
 
 		if (depth_format)
-			depth = make_msaa_tex(lbl+".depth", size, depth_format, levels, msaa);
+			depth = Texture2D_MSAA(lbl+".depth", size, depth_format, levels, msaa);
 
 		GLenum msaa_targ = msaa > 1 ? GL_TEXTURE_2D_MULTISAMPLE : GL_TEXTURE_2D;
 		
 		{
-			glGenFramebuffers(1, &fbo);
+			fbo = Fbo(lbl+".fbo");
 			glBindFramebuffer(GL_FRAMEBUFFER, fbo);
-			OGL_DBG_LABEL(GL_FRAMEBUFFER, fbo, lbl+".fbo");
 
 			glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, msaa_targ, col, 0);
 			if (depth)
@@ -1263,11 +1271,6 @@ public:
 
 		glBindFramebuffer(GL_FRAMEBUFFER, 0);
 		glBindTexture(msaa_targ, 0);
-	}
-	~Renderbuffer () {
-		if (fbo)   glDeleteFramebuffers(1, &fbo);
-		if (col)   glDeleteTextures(1, &col);
-		if (depth) glDeleteTextures(1, &depth);
 	}
 };
 
