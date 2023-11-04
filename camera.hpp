@@ -40,6 +40,8 @@ struct View3D {
 
 		float2 uv = px_center * inv_viewport_size - 0.5f;
 
+		// TODO: fix this for ortho
+
 		float3 ray_dir = (float3x3)cam2world * float3(frust_near_size * uv, -clip_near);
 		float3 ray_pos = cam_pos + ray_dir;
 
@@ -50,43 +52,73 @@ struct View3D {
 	}
 };
 
-inline void ortho_cam2clip (float w, float h, float near, float far, float4x4* out_cam2clip, float4x4* out_clip2cam) {
+inline View3D ortho_view (float w, float h, float near, float far,
+		float3x4 const& world2cam, float3x4 const& cam2world, float2 viewport_size) {
 	
-	// TODO: reverse_depth ?
-
-	// cam2clip (z)  linear  [-near, -far] -> [-1,+1]
-	float a = -2.0f / (far - near);
-	float b = near * a - 1.0f;
-
-	if (out_cam2clip) {
-		*out_cam2clip = float4x4(
-			2.0f/w,      0,      0,     0,
-			     0, 2.0f/h,      0,     0,
-			     0,      0,      a,     b,
-			     0,      0,      0,     1);
+	float a, b;
+#if OGL_USE_REVERSE_DEPTH
+	if (ogl::reverse_depth) {
+		// maps cam_z linearily [-near, -far] -> [1,0]
+		// NOTE: can't really do reverse_depth (infinine far plane) with ortho projection since we can't do divide by z
+		// and can't map infinity into 0,1 range without it
+		a = 1.0f / (far - near);
+		b = near * a + 1.0f;
 	}
-	if (out_clip2cam) {
-		*out_clip2cam = float4x4(
-			w/2.0f,      0,      0,     0,
-			     0, h/2.0f,      0,     0,
-			     0,      0, 1.0f/a,  -b/a,
-			     0,      0,      0,     1);
+	else
+#endif
+	{
+		// maps cam_z linearily [-near, -far] -> [-1,+1]
+		a = -2.0f / (far - near);
+		b = near * a - 1.0f;
 	}
+	
+	View3D v;
+
+	v.cam2clip = float4x4(
+		2.0f/w,      0,      0,     0,
+		     0, 2.0f/h,      0,     0,
+		     0,      0,      a,     b,
+		     0,      0,      0,     1);
+
+	v.clip2cam = float4x4(
+		w*0.5f,      0,      0,     0,
+		     0, h*0.5f,      0,     0,
+		     0,      0, 1.0f/a,  -b/a,
+		     0,      0,      0,     1);
+	
+	// V matrices
+	v.world2cam = (float4x4)world2cam;
+	v.cam2world = (float4x4)cam2world;
+	// VP inverses
+	v.world2clip = v.cam2clip * v.world2cam;
+	v.clip2world = v.cam2world * v.clip2cam;
+
+	// misc
+	v.frust_near_size    = float2(w,h);
+	v.clip_near          = near;
+	v.clip_far           = far;
+	v.cam_pos            = v.cam2world.arr[3];
+	v.aspect_ratio       = w / h;
+	v.viewport_size      = viewport_size;
+	v.inv_viewport_size  = 1.0f / viewport_size;
+
+	return v;
 }
 
-inline void persp_cam2clip (float vfov, float aspect_wh, float near, float far, float4x4* out_cam2clip, float4x4* out_clip2cam, float2* out_frust_size) {
+inline View3D persp_view (float vfov, float aspect, float near, float far,
+		float3x4 const& world2cam, float3x4 const& cam2world, float2 viewport_size) {
 	float y = tanf(vfov * 0.5f);
-	float x = y * aspect_wh;
+	float x = y * aspect;
 
-	if (out_frust_size) *out_frust_size = float2(x,y); // half-widths of frustrum at 1 unit depth
+	float2 frust_size = float2(x,y); // half-widths of frustrum at 1 unit depth
 
 	//float hfov = atanf(frust_scale.x) * 2.0f;
 
-	
 	float a, b;
-	
 #if OGL_USE_REVERSE_DEPTH
 	if (ogl::reverse_depth) {
+		// maps cam_z [-near,inf) -> depth [1,0]
+		
 		// use_reverse_depth with use infinite far plane
 		// visible range on z axis in opengl and vulkan goes from -near to -inf
 		// depth formula is: (with input w=1) z' = near, w' = -z  ->  depth = near/-z
@@ -95,29 +127,45 @@ inline void persp_cam2clip (float vfov, float aspect_wh, float near, float far, 
 		far = 1000000.0f; // can't actually set far to be infinite if I want frustrum culling to work without modification
 		a = 0.0f;
 		b = near;
-	} else {
+	}
+	else
+#endif
+	{
+		// maps cam_z [-near,-far] -> depth [-1,+1]
 		a = (far + near) / (near - far);
 		b = (2.0f * far * near) / (near - far);
 	}
-#else
-	a = (far + near) / (near - far);
-	b = (2.0f * far * near) / (near - far);
-#endif
 
-	if (out_cam2clip) {
-		*out_cam2clip = float4x4(
-			1.0f/x,      0,      0,     0,
-			     0, 1.0f/y,      0,     0,
-			     0,      0,      a,     b,
-			     0,      0,     -1,     0);
-	}
-	if (out_clip2cam) {
-		*out_clip2cam = float4x4(
-			     x,      0,      0,     0,
-			     0,      y,      0,     0,
-			     0,      0,      0,    -1,
-			     0,      0, 1.0f/b,   a/b);
-	}
+	View3D v;
+
+	v.cam2clip = float4x4(
+		1.0f/x,      0,      0,     0,
+		     0, 1.0f/y,      0,     0,
+		     0,      0,      a,     b,
+		     0,      0,     -1,     0);
+	v.clip2cam = float4x4(
+		     x,      0,      0,     0,
+		     0,      y,      0,     0,
+		     0,      0,      0,    -1,
+		     0,      0, 1.0f/b,   a/b);
+	
+	// V matrices
+	v.world2cam = (float4x4)world2cam;
+	v.cam2world = (float4x4)cam2world;
+	// VP inverses
+	v.world2clip = v.cam2clip * v.world2cam;
+	v.clip2world = v.cam2world * v.clip2cam;
+
+	// misc
+	v.frust_near_size    = frust_size * 2.0f * near;
+	v.clip_near          = near;
+	v.clip_far           = far;
+	v.cam_pos            = v.cam2world.arr[3];
+	v.aspect_ratio       = aspect;
+	v.viewport_size      = viewport_size;
+	v.inv_viewport_size  = 1.0f / viewport_size;
+
+	return v;
 }
 
 inline void azimuthal_mount (float3 const& aer, float3x3* out_world2cam, float3x3* out_cam2world) {
@@ -339,25 +387,11 @@ struct Camera2D {
 		}
 		pos.x += delta.x;
 		pos.y += delta.y;
+		
+		float3x4 world2cam = float3x4(rotate3_Z(-rot)) * translate(-pos);
+		float3x4 cam2world = translate(pos) * float3x4(rotate3_Z(rot));
 
-		View3D view;
-		// P matrices
-		ortho_cam2clip(size.x, size.y, clip_near, clip_far, &view.cam2clip, &view.clip2cam);
-		// V matrices
-		view.world2cam = float4x4(rotate3_Z(-rot)) * float4x4(translate(-pos));
-		view.cam2world = float4x4(translate(pos)) * float4x4(rotate3_Z(rot));
-		// VP inverses
-		view.world2clip = view.cam2clip * view.world2cam;
-		view.clip2world = view.cam2world * view.clip2cam;
-		// misc
-		view.frust_near_size    = size;
-		view.clip_near          = clip_near;
-		view.clip_far           = clip_far;
-		view.cam_pos            = pos;
-		view.aspect_ratio       = aspect;
-		view.viewport_size      = viewport_size;
-		view.inv_viewport_size  = 1.0f / viewport_size;
-		return view;
+		return ortho_view(size.x, size.y, clip_near, clip_far, world2cam, cam2world, viewport_size);
 	}
 };
 
@@ -475,33 +509,15 @@ struct Flycam {
 		}
 
 		float aspect = viewport_size.x / viewport_size.y;
-		float2 frust_size;
 
-		View3D view;
-		// P matrices
+		float3x4 world2cam = float3x4(world2cam_rot) * translate(-pos);
+		float3x4 cam2world = translate(pos) * float3x4(cam2world_rot);
+
 		if (!ortho) {
-			persp_cam2clip(vfov, aspect, clip_near, clip_far, &view.cam2clip, &view.clip2cam, &frust_size);
+			return persp_view(vfov, aspect, clip_near, clip_far, world2cam, cam2world, viewport_size);
 		}
 		else {
-			// TODO: debug this
-			ortho_cam2clip(aspect * ortho_size, ortho_size, clip_near, clip_far, &view.cam2clip, &view.clip2cam);
-			frust_size = 1; // TODO: fix frustrum
+			return ortho_view(aspect * ortho_size, ortho_size, clip_near, clip_far, world2cam, cam2world, viewport_size);
 		}
-
-		// V matrices
-		view.world2cam = float4x4(world2cam_rot) * float4x4(translate(-pos));
-		view.cam2world = float4x4(translate(pos)) * float4x4(cam2world_rot);
-		// VP inverses
-		view.world2clip = view.cam2clip * view.world2cam;
-		view.clip2world = view.cam2world * view.clip2cam;
-		// misc
-		view.frust_near_size    = frust_size * 2.0f * clip_near;
-		view.clip_near          = clip_near;
-		view.clip_far           = clip_far;
-		view.cam_pos            = pos;
-		view.aspect_ratio       = aspect;
-		view.viewport_size      = viewport_size;
-		view.inv_viewport_size  = 1.0f / viewport_size;
-		return view;
 	}
 };

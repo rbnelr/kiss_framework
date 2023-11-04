@@ -1076,7 +1076,8 @@ enum TexFilterMode {
 	FILTER_NEAREST,
 	FILTER_BILINEAR,
 };
-inline Sampler sampler (std::string_view label, TexFilterMode filter, GLenum wrap_mode=GL_REPEAT, bool aniso=false) {
+
+inline Sampler sampler (std::string_view label, TexFilterMode filter, GLenum wrap_mode, lrgba border_col, bool aniso=false) {
 	auto sampler = Sampler(label);
 	
 	GLenum min=0, mag=0;
@@ -1099,10 +1100,17 @@ inline Sampler sampler (std::string_view label, TexFilterMode filter, GLenum wra
 
 	glSamplerParameteri(sampler, GL_TEXTURE_WRAP_S, wrap_mode);
 	glSamplerParameteri(sampler, GL_TEXTURE_WRAP_T, wrap_mode);
-			
+
+	if (wrap_mode == GL_CLAMP_TO_BORDER) {
+		glSamplerParameterfv(sampler, GL_TEXTURE_BORDER_COLOR, &border_col.x);
+	}
+
 	glSamplerParameterf(sampler, GL_TEXTURE_MAX_ANISOTROPY, aniso ? max_aniso : 1.0f);
 
 	return sampler;
+}
+inline Sampler sampler (std::string_view label, TexFilterMode filter, GLenum wrap_mode=GL_REPEAT, bool aniso=false) {
+	return sampler(label, filter, wrap_mode, 0, aniso);
 }
 
 inline int calc_mipmaps (int w, int h) {
