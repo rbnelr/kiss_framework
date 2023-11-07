@@ -1347,7 +1347,7 @@ struct FramebufferTexture {
 	RenderbufferWithDepth fbo_MSAA = {}; // msaa>1 ?   MSAA textures : normal textures
 	RenderbufferWithDepth fbo      = {}; // msaa>1 ? normal textures : 0
 	
-	render::RenderScale renderscale;
+	render::RenderScale_with_MSAA renderscale;
 
 	Sampler fbo_sampler         = sampler("fbo_sampler", FILTER_MIPMAPPED, GL_CLAMP_TO_EDGE);
 	Sampler fbo_sampler_nearest = sampler("fbo_sampler_nearest", FILTER_NEAREST, GL_CLAMP_TO_EDGE);

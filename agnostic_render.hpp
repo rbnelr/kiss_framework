@@ -199,8 +199,8 @@ struct DebugDraw {
 };
 
 // use in backend Renderbuffer
-struct RenderScale {
-	SERIALIZE(RenderScale, renderscale, MSAA, nearest)
+struct RenderScale_with_MSAA {
+	SERIALIZE(RenderScale_with_MSAA, renderscale, MSAA, nearest)
 
 	int2 size = -1;
 	float renderscale = 1.0f;
@@ -211,7 +211,7 @@ struct RenderScale {
 
 	bool changed = false;
 	
-	void imgui (bool show_msaa=true) {
+	void imgui () {
 		if (ImGui::TreeNode("RenderScale")) {
 
 			ImGui::Text("res: %4d x %4d px (%5.2f Mpx)", size.x, size.y, (float)(size.x * size.y) / (1000*1000));
@@ -220,8 +220,40 @@ struct RenderScale {
 			//changed = ImGui::Checkbox("depth_float32", &depth_float32) || changed;
 			changed = ImGui::Checkbox("nearest", &nearest) || changed;
 
-			if (show_msaa)
-				changed = ImGui::SliderInt("MSAA", &MSAA, 1, 16) || changed;
+			changed = ImGui::SliderInt("MSAA", &MSAA, 1, 16) || changed;
+
+			ImGui::TreePop();
+		}
+	}
+
+	bool update (int2 output_size) {
+		auto old_size = size;
+		size = max(1, roundi((float2)output_size * renderscale));
+
+		bool upd = old_size != size || changed;
+		changed = false;
+		return upd;
+	}
+};
+// use in backend Renderbuffer
+struct RenderScale {
+	SERIALIZE(RenderScale, renderscale, nearest)
+
+	int2 size = -1;
+	float renderscale = 1.0f;
+
+	bool nearest = false;
+
+	bool changed = false;
+	
+	void imgui () {
+		if (ImGui::TreeNode("RenderScale")) {
+
+			ImGui::Text("res: %4d x %4d px (%5.2f Mpx)", size.x, size.y, (float)(size.x * size.y) / (1000*1000));
+			changed = ImGui::SliderFloat("renderscale", &renderscale, 0.02f, 2.0f);
+
+			//changed = ImGui::Checkbox("depth_float32", &depth_float32) || changed;
+			changed = ImGui::Checkbox("nearest", &nearest) || changed;
 
 			ImGui::TreePop();
 		}
