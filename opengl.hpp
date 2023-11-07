@@ -818,6 +818,7 @@ namespace state {
 	struct PipelineState {
 		bool depth_test = true;
 		bool depth_write = true;
+		bool depth_clamp = false;
 		DepthFunc depth_func = DEPTH_INFRONT;
 
 		bool scissor_test = false;
@@ -877,6 +878,7 @@ namespace state {
 			glDepthFunc(map_depth_func(s.depth_func));
 	#endif
 			glDepthMask(s.depth_write ? GL_TRUE : GL_FALSE);
+			glSetEnable(GL_DEPTH_CLAMP, s.depth_clamp);
 
 			glSetEnable(GL_SCISSOR_TEST, s.scissor_test);
 
@@ -910,6 +912,9 @@ namespace state {
 	#endif
 				GLint depth_write;		glGetIntegerv(GL_DEPTH_WRITEMASK, &depth_write);
 				assert(state.depth_write == !!depth_write);
+
+				GLint depth_clamp;		glGetIntegerv(GL_DEPTH_CLAMP, &depth_clamp);
+				assert(state.depth_clamp == !!depth_clamp);
 		
 				assert(state.scissor_test == !!glIsEnabled(GL_SCISSOR_TEST));
 		
@@ -947,6 +952,9 @@ namespace state {
 			}
 			if (state.depth_write != s.depth_write)
 				glDepthMask(s.depth_write ? GL_TRUE : GL_FALSE);
+
+			if (state.depth_clamp != s.depth_clamp)
+				glSetEnable(GL_DEPTH_CLAMP, s.depth_clamp);
 
 			if (state.scissor_test != s.scissor_test)
 				glSetEnable(GL_SCISSOR_TEST, s.scissor_test);
