@@ -1085,7 +1085,7 @@ enum TexFilterMode {
 	FILTER_BILINEAR,
 };
 
-inline Sampler sampler (std::string_view label, TexFilterMode filter, GLenum wrap_mode, lrgba border_col, bool aniso=false) {
+inline Sampler make_sampler (std::string_view label, TexFilterMode filter, GLenum wrap_mode, lrgba border_col, bool aniso=false) {
 	auto sampler = Sampler(label);
 	
 	GLenum min=0, mag=0;
@@ -1117,8 +1117,8 @@ inline Sampler sampler (std::string_view label, TexFilterMode filter, GLenum wra
 
 	return sampler;
 }
-inline Sampler sampler (std::string_view label, TexFilterMode filter, GLenum wrap_mode=GL_REPEAT, bool aniso=false) {
-	return sampler(label, filter, wrap_mode, 0, aniso);
+inline Sampler make_sampler (std::string_view label, TexFilterMode filter, GLenum wrap_mode=GL_REPEAT, bool aniso=false) {
+	return make_sampler(label, filter, wrap_mode, 0, aniso);
 }
 
 inline int calc_mipmaps (int w, int h) {
@@ -1349,8 +1349,8 @@ struct FramebufferTexture {
 	
 	render::RenderScale_with_MSAA renderscale;
 
-	Sampler fbo_sampler         = sampler("fbo_sampler", FILTER_MIPMAPPED, GL_CLAMP_TO_EDGE);
-	Sampler fbo_sampler_nearest = sampler("fbo_sampler_nearest", FILTER_NEAREST, GL_CLAMP_TO_EDGE);
+	Sampler fbo_sampler         = make_sampler("fbo_sampler", FILTER_MIPMAPPED, GL_CLAMP_TO_EDGE);
+	Sampler fbo_sampler_nearest = make_sampler("fbo_sampler_nearest", FILTER_NEAREST, GL_CLAMP_TO_EDGE);
 	
 	static constexpr GLenum color_format = GL_R11F_G11F_B10F;// GL_RGBA16F GL_RGBA32F GL_SRGB8_ALPHA8
 	static constexpr GLenum color_format_resolve = GL_SRGB8_ALPHA8;
