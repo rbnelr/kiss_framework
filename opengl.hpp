@@ -649,7 +649,7 @@ static constexpr inline int ATTRIB_TYPE_COMPONENTS[] = {
 };
 
 template <size_t N>
-inline int setup_vao_attribs (render::VertexAttributes<N> const& attribs, int idx, size_t base_offs=0) {
+inline int setup_vao_attribs (render::VertexAttributes<N> const& attribs, int idx, int instance_divisor=0, size_t base_offs=0) {
 	using namespace render;
 
 	for (auto const& a : attribs.attribs) {
@@ -657,8 +657,8 @@ inline int setup_vao_attribs (render::VertexAttributes<N> const& attribs, int id
 
 		glEnableVertexAttribArray(idx);
 		
-		if (attribs.instanced > 0) {
-			glVertexAttribDivisor(idx, attribs.instanced);
+		if (instance_divisor > 0) {
+			glVertexAttribDivisor(idx, instance_divisor);
 		}
 
 		assert(a.stride > 0);
@@ -687,7 +687,7 @@ inline void setup_vao (render::VertexAttributes<N> const& attribs, GLuint vao, G
 	if (ebo) glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, ebo);
 
 	glBindBuffer(GL_ARRAY_BUFFER, vbo);
-	setup_vao_attribs(attribs, 0, vbo_base_offs);
+	setup_vao_attribs(attribs, 0, 0, vbo_base_offs);
 	glBindBuffer(GL_ARRAY_BUFFER, 0); // glVertexAttribPointer remembers VAO
 
 	glBindVertexArray(0);
@@ -719,7 +719,7 @@ inline VertexBufferInstanced vertex_buffer_instanced (std::string_view label) {
 	glBindBuffer(GL_ARRAY_BUFFER, buf.vbo);
 	int idx = setup_vao_attribs(MESH_VERTEX::attribs(), 0, 0);
 	glBindBuffer(GL_ARRAY_BUFFER, buf.instances);
-	    idx = setup_vao_attribs(INSTANCE_VERTEX::attribs(), idx, 0);
+	    idx = setup_vao_attribs(INSTANCE_VERTEX::attribs(), idx, 1);
 	glBindBuffer(GL_ARRAY_BUFFER, 0); // glVertexAttribPointer remembers VAO
 
 	glBindVertexArray(0);
@@ -737,7 +737,7 @@ inline VertexBufferInstancedI vertex_buffer_instancedI (std::string_view label) 
 	glBindBuffer(GL_ARRAY_BUFFER, buf.vbo);
 	int idx = setup_vao_attribs(MESH_VERTEX::attribs(), 0, 0);
 	glBindBuffer(GL_ARRAY_BUFFER, buf.instances);
-	    idx = setup_vao_attribs(INSTANCE_VERTEX::attribs(), idx, 0);
+	    idx = setup_vao_attribs(INSTANCE_VERTEX::attribs(), idx, 1);
 	glBindBuffer(GL_ARRAY_BUFFER, 0); // glVertexAttribPointer remembers VAO
 
 	glBindVertexArray(0);

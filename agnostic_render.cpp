@@ -64,7 +64,7 @@ void DebugDraw::wire_cube (float3 const& pos, float3 const& size, lrgba const& c
 	auto* out = push_back(lines, ARRLEN(shapes::WIRE_CUBE_INDICES));
 
 	for (auto& idx : shapes::WIRE_CUBE_INDICES) {
-		auto& v = shapes::WIRE_CUBE_VERTICES[idx];
+		auto& v = shapes::CUBE_VERTICES[idx];
 
 		out->pos.x = v.x * size.x + pos.x;
 		out->pos.y = v.y * size.y + pos.y;

@@ -17,15 +17,11 @@ struct Attribute {
 
 template <size_t N>
 struct VertexAttributes {
-	// 0: not instanced  (or this is a Vertex of the mesh that is being instanced)
-	// 1: instanced      (this is a Vertex of the per instance buffer)
-	// >1: instance divisor (not usually useful?)
-	int instanced;
 	std::array<Attribute, N> attribs;
 };
 
 template <size_t N>
-inline constexpr VertexAttributes<N> _make_attribs (int instanced, std::array<render::Attribute, N> attribs) { return {instanced, attribs}; }
+inline constexpr VertexAttributes<N> _make_attribs (std::array<render::Attribute, N> attribs) { return {attribs}; }
 
 /* Use like:
 	struct Vertex {
@@ -40,8 +36,7 @@ inline constexpr VertexAttributes<N> _make_attribs (int instanced, std::array<re
 		)
 	};
 */
-#define VERTEX_CONFIG(...)           static inline constexpr auto attribs () { return _make_attribs(0, std::array{__VA_ARGS__}); }
-#define VERTEX_CONFIG_INSTANCED(...) static inline constexpr auto attribs () { return _make_attribs(1, std::array{__VA_ARGS__}); }
+#define VERTEX_CONFIG(...)           static inline constexpr auto attribs () { return _make_attribs(std::array{__VA_ARGS__}); }
 #define ATTRIB(type, VertexType, member) render::Attribute{render::Attribute::type, (int)sizeof(VertexType), (int)offsetof(VertexType, member)}
 
 namespace shapes {
@@ -93,13 +88,13 @@ namespace shapes {
 		indx[4] = c;
 		indx[5] = d;
 	}
-
+	
 	inline constexpr uint16_t WIRE_QUAD_INDICES[] = {
 		0,1,  1,2,  2,3,  3,0,
 	};
 
 	// Quad [0,1] pointing at Z
-	inline constexpr float3 WIRE_CUBE_VERTICES[] = {
+	inline constexpr float3 CUBE_VERTICES[] = {
 		{0,0,0},
 		{1,0,0},
 		{1,1,0},
@@ -108,6 +103,25 @@ namespace shapes {
 		{1,0,1},
 		{1,1,1},
 		{0,1,1},
+	};
+	inline constexpr float3 CUBE_CENTERED_VERTICES[] = {
+		{-0.5f,-0.5f,-0.5f},
+		{+0.5f,-0.5f,-0.5f},
+		{+0.5f,+0.5f,-0.5f},
+		{-0.5f,+0.5f,-0.5f},
+		{-0.5f,-0.5f,+0.5f},
+		{+0.5f,-0.5f,+0.5f},
+		{+0.5f,+0.5f,+0.5f},
+		{-0.5f,+0.5f,+0.5f},
+	};
+	
+	inline constexpr uint16_t CUBE_INDICES[] = {
+		REND_QUAD_INDICES(0,1,5,4),
+		REND_QUAD_INDICES(1,2,6,5),
+		REND_QUAD_INDICES(2,3,7,6),
+		REND_QUAD_INDICES(3,0,4,7),
+		REND_QUAD_INDICES(4,5,6,7),
+		REND_QUAD_INDICES(3,2,1,0),
 	};
 
 	inline constexpr uint16_t WIRE_CUBE_INDICES[] {

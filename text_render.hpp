@@ -111,7 +111,7 @@ struct TextRenderer {
 		float4 uv_rect; // (x0,y0, x1,y1)
 		float4 text_col;
 		
-		VERTEX_CONFIG_INSTANCED(
+		VERTEX_CONFIG(
 			ATTRIB(FLT4, GlyphInstance, px_rect),
 			ATTRIB(FLT4, GlyphInstance, uv_rect),
 			ATTRIB(FLT4, GlyphInstance, text_col),
