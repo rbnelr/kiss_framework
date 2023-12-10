@@ -212,6 +212,9 @@ namespace shader {
 			if (i >= 0)
 				_set_uniform(uniforms[i], val);
 		}
+
+		// WARNING: Opengl for whatever reason decided that you need to specify "uniform_name[0]" for uniform arrays
+		// Don't let yourself be confused by this again!
 		template <typename T>
 		inline void set_uniform_array (std::string_view const& name, T const* values, int arr_count) {
 			int i = indexof(uniforms, name, _findUniform);
