@@ -155,7 +155,15 @@ bool window_setup (Engine& eng, char const* window_title) {
 
 		if (glfwExtensionSupported("WGL_EXT_swap_control_tear"))
 			_vsync_on_interval = -1;
-
+		
+		if (!glfwExtensionSupported("GL_ARB_bindless_texture")) {
+			fprintf(stderr, "[OpenGL] No bindless textures supported! This is bad!\n");
+		}
+		if (  !glfwExtensionSupported("GL_ARB_gpu_shader5") ||
+			  !glfwExtensionSupported("GL_ARB_gpu_shader_int64")) {
+			fprintf(stderr, "[OpenGL] GL_ARB_gpu_shader5 or GL_ARB_gpu_shader_int64 not supported! This is bad!\n");
+		}
+		
 		eng.set_vsync(eng.vsync);
 
 		// srgb enabled by default if supported
