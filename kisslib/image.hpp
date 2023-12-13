@@ -4,6 +4,7 @@
 #include "file_io.hpp"
 #include "stb_image.hpp"
 #include "assert.h"
+#include "tracy/Tracy.hpp"
 
 namespace {
 	struct _Format {
@@ -100,13 +101,24 @@ public:
 
 	// Loads a image file from disk, potentially converting it to the target pixel type
 	static bool load_from_file (const char* filepath, Image<T>* out, bool top_down=false) {
+		ZoneScoped;
+
 		uint64_t file_size;
-		auto file_data = kiss::load_binary_file(filepath, &file_size);
+		kiss::raw_data file_data;
+		{
+			ZoneScopedN("load_binary_file");
+			file_data = kiss::load_binary_file(filepath, &file_size);
+		}
 		if (!file_data)
 			return false;
 
+
 		int2 size;
-		T* pixels = _stbi_load_from_memory<T>(file_data.get(), file_size, &size, top_down);
+		T* pixels;
+		{
+			ZoneScopedN("decode");
+			pixels = _stbi_load_from_memory<T>(file_data.get(), file_size, &size, top_down);
+		}
 		if (!pixels)
 			return false;
 

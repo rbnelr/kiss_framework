@@ -95,7 +95,7 @@ bool window_setup (Engine& eng, char const* window_title) {
 	create_cursors(eng);
 	
 	{
-		ZoneScopedN("glfwCreateWindow");
+		ZoneScopedN("create window");
 
 		glfwWindowHint(GLFW_RESIZABLE, 1);
 		glfwWindowHint(GLFW_CLIENT_API, GLFW_OPENGL_API);
@@ -117,11 +117,14 @@ bool window_setup (Engine& eng, char const* window_title) {
 	#endif
 		glfwWindowHint(GLFW_SRGB_CAPABLE, GLFW_TRUE);
 		//glfwWindowHint(GLFW_FOCUS_ON_SHOW, GLFW_FALSE);
-
-		eng.window = glfwCreateWindow(eng.window_size.x, eng.window_size.y, window_title, NULL, NULL);
-		if (!eng.window) {
-			printf("glfwCreateWindow error!");
-			return false;
+		
+		{
+			ZoneScopedN("glfwCreateWindow");
+			eng.window = glfwCreateWindow(eng.window_size.x, eng.window_size.y, window_title, NULL, NULL);
+			if (!eng.window) {
+				printf("glfwCreateWindow error!");
+				return false;
+			}
 		}
 	}
 
@@ -143,60 +146,67 @@ bool window_setup (Engine& eng, char const* window_title) {
 				return false;
 			}
 		}
+		
+		{
+			ZoneScopedN("check extensions and print version");
 
-	#if RENDERER_DEBUG_OUTPUT
-		if (glfwExtensionSupported("GL_ARB_debug_output")) {
-			glDebugMessageCallbackARB(ogl::debug_callback, &eng);
-		#if RENDERER_DEBUG_OUTPUT_BREAKPOINT
-			glEnable(GL_DEBUG_OUTPUT_SYNCHRONOUS_ARB); // Call message on thread that call was made
+		#if RENDERER_DEBUG_OUTPUT
+			if (glfwExtensionSupported("GL_ARB_debug_output")) {
+				glDebugMessageCallbackARB(ogl::debug_callback, &eng);
+			#if RENDERER_DEBUG_OUTPUT_BREAKPOINT
+				glEnable(GL_DEBUG_OUTPUT_SYNCHRONOUS_ARB); // Call message on thread that call was made
+			#endif
+			}
 		#endif
-		}
-	#endif
 
-		if (glfwExtensionSupported("WGL_EXT_swap_control_tear"))
-			_vsync_on_interval = -1;
+			if (glfwExtensionSupported("WGL_EXT_swap_control_tear"))
+				_vsync_on_interval = -1;
 		
-		if (!glfwExtensionSupported("GL_ARB_bindless_texture")) {
-			fprintf(stderr, "[OpenGL] No bindless textures supported! This is bad!\n");
-		}
-		if (  !glfwExtensionSupported("GL_ARB_gpu_shader5") ||
-			  !glfwExtensionSupported("GL_ARB_gpu_shader_int64")) {
-			fprintf(stderr, "[OpenGL] GL_ARB_gpu_shader5 or GL_ARB_gpu_shader_int64 not supported! This is bad!\n");
-		}
+			if (!glfwExtensionSupported("GL_ARB_bindless_texture")) {
+				fprintf(stderr, "[OpenGL] No bindless textures supported! This is bad!\n");
+			}
+			if (  !glfwExtensionSupported("GL_ARB_gpu_shader5") ||
+				  !glfwExtensionSupported("GL_ARB_gpu_shader_int64")) {
+				fprintf(stderr, "[OpenGL] GL_ARB_gpu_shader5 or GL_ARB_gpu_shader_int64 not supported! This is bad!\n");
+			}
 		
-		eng.set_vsync(eng.vsync);
+			eng.set_vsync(eng.vsync);
 
-		// srgb enabled by default if supported
-		// TODO: should I use glfwExtensionSupported or GLAD_GL_ARB_framebuffer_sRGB? does it make a difference?
-		if (glfwExtensionSupported("GL_ARB_framebuffer_sRGB"))
-			glEnable(GL_FRAMEBUFFER_SRGB);
-		else
-			fprintf(stderr, "[OpenGL] No sRGB framebuffers supported! Shading will be wrong!\n");
+			// srgb enabled by default if supported
+			// TODO: should I use glfwExtensionSupported or GLAD_GL_ARB_framebuffer_sRGB? does it make a difference?
+			if (glfwExtensionSupported("GL_ARB_framebuffer_sRGB"))
+				glEnable(GL_FRAMEBUFFER_SRGB);
+			else
+				fprintf(stderr, "[OpenGL] No sRGB framebuffers supported! Shading will be wrong!\n");
 
-	#if OGL_USE_REVERSE_DEPTH
-		ogl::reverse_depth = glfwExtensionSupported("GL_ARB_clip_control");
-	#endif
+		#if OGL_USE_REVERSE_DEPTH
+			ogl::reverse_depth = glfwExtensionSupported("GL_ARB_clip_control");
+		#endif
 
-		//if (	!glfwExtensionSupported("GL_NV_gpu_shader5") ||
-		//	!glfwExtensionSupported("GL_NV_shader_buffer_load")) {
-		//	clog(ERROR, "[OpenGL] GL_NV_gpu_shader5 or GL_NV_shader_buffer_load not supported!\n");
-		//}
+			//if (	!glfwExtensionSupported("GL_NV_gpu_shader5") ||
+			//	!glfwExtensionSupported("GL_NV_shader_buffer_load")) {
+			//	clog(ERROR, "[OpenGL] GL_NV_gpu_shader5 or GL_NV_shader_buffer_load not supported!\n");
+			//}
 
-		glEnable(GL_TEXTURE_CUBE_MAP_SEAMLESS); // core since 3.2
+			glEnable(GL_TEXTURE_CUBE_MAP_SEAMLESS); // core since 3.2
 	
-		glGetFloatv(GL_MAX_TEXTURE_MAX_ANISOTROPY, &ogl::max_aniso);
+			glGetFloatv(GL_MAX_TEXTURE_MAX_ANISOTROPY, &ogl::max_aniso);
 
-		auto* vend = glGetString(GL_VENDOR);
-		auto* rend = glGetString(GL_RENDERER);
-		auto* vers = glGetString(GL_VERSION);
+			auto* vend = glGetString(GL_VENDOR);
+			auto* rend = glGetString(GL_RENDERER);
+			auto* vers = glGetString(GL_VERSION);
 		
-		printf( "GL_VENDOR:   %s\n"
-		        "GL_RENDERER: %s\n"
-		        "GL_VERSION:  %s\n", vend, rend, vers);
+			printf( "GL_VENDOR:   %s\n"
+					"GL_RENDERER: %s\n"
+					"GL_VERSION:  %s\n", vend, rend, vers);
+		}
 	}
 
-	TracyGpuContext;
-	
+	{
+		ZoneScopedN("TracyGpuContext");
+		TracyGpuContext;
+	}
+
 	imgui_setup(eng);
 	
 	return true;
