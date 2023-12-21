@@ -104,56 +104,43 @@ struct _Random {
 		return uniform_direction() * uniformf(min_magnitude, max_magnitude);
 	}
 
-#if 0
-	// get random index of array of probability weights
-	// numbers are assumed to be >= 0
-	// returns -1 if probabilities are all 0s and 0s are never picked 
-	// array is scanned to get total probability weight, then RNG is called to get random num in [0, total prob weight]
-	// then array is scanned again to find index where random num crosses the cumulative probability
-	template <typename ARRAY>
-	inline int weighted_choice (ARRAY const& probabilities) {
-		float total_prob = 0;
-		for (auto p : probabilities) {
-			total_prob += p;
-		}
-
-		if (total_prob == 0.0f)
-			return -1; // all 0 prob
-
-		float rand = uniform(0.0f, total_prob);
-
-		// pick index by comparing cumulative weight against random num
-		float accum = 0.0f;
-
-		int count = (int)probabilities.size();
-		for (int i=0;; i++) {
-			accum += probabilities[i];
-			if (rand < accum || i+1 == count)
-				return i;
-		}
-	}
-
-	template <typename FUNC>
-	inline int weighted_choice (int count, FUNC get_prob, float total_prob) {
-		if (total_prob == 0.0f)
-			return -1; // all 0 prob
-
-		float rand = uniform(0.0f, total_prob);
-
-		// pick index by comparing cumulative weight against random num
-		float accum = 0.0f;
-
-		for (int i=0;; i++) {
-			accum += get_prob(i);
-			if (rand < accum || i+1 == count)
-				return i;
-		}
-	}
-
-#endif
 };
 
 typedef _Random<std::default_random_engine> Random;
+
+struct WeightedChoice {
+	// TODO: could be optimized using a binary search
+
+	std::vector<float> thresholds;
+
+	template <typename Ts, typename FUNC>
+	WeightedChoice (Ts const& objs, FUNC get_weight) {
+		float total = 0;
+		
+		thresholds.reserve(objs.size());
+
+		for (auto& obj : objs) {
+			total += get_weight(obj);
+			thresholds.push_back(total);
+		}
+	}
+
+	template <typename RAND>
+	int get_random (RAND& rand) {
+		if (thresholds.empty() || thresholds.back() <= 0)
+			return -1;
+		float total = thresholds.back();
+
+		float val = rand.uniformf(0.0f, total);
+			
+		int i = 0;
+		for (; i<(int)thresholds.size(); i++) {
+			if (val < thresholds[i])
+				return i;
+		}
+		return i; // should only happen if val==total, which shoule be rare
+	}
+};
 
 uint64_t get_initial_random_seed ();
 
