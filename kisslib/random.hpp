@@ -1,5 +1,7 @@
 #pragma once
 #include "kissmath.hpp"
+#include <vector>
+#include <unordered_map>
 #include <random>
 
 template <typename ENGINE>
@@ -108,39 +110,47 @@ struct _Random {
 
 typedef _Random<std::default_random_engine> Random;
 
+template <typename IT, typename FUNC>
 struct WeightedChoice {
 	// TODO: could be optimized using a binary search
 
-	std::vector<float> thresholds;
+	IT begin, end;
+	FUNC get_weight;
+	float total;
 
-	template <typename Ts, typename FUNC>
-	WeightedChoice (Ts const& objs, FUNC get_weight) {
-		float total = 0;
-		
-		thresholds.reserve(objs.size());
-
-		for (auto& obj : objs) {
-			total += get_weight(obj);
-			thresholds.push_back(total);
+	WeightedChoice (IT begin, IT end, FUNC get_weight): begin{begin}, end{end}, get_weight{get_weight} {
+		float accum = 0;
+		for (auto it=begin; it!=end; ++it) {
+			accum += get_weight(it);
 		}
+		total = accum;
 	}
 
 	template <typename RAND>
-	int get_random (RAND& rand) {
-		if (thresholds.empty() || thresholds.back() <= 0)
-			return -1;
-		float total = thresholds.back();
+	IT get_random (RAND& rand) {
+		if (begin == end)
+			return end;
 
 		float val = rand.uniformf(0.0f, total);
-			
-		int i = 0;
-		for (; i<(int)thresholds.size(); i++) {
-			if (val < thresholds[i])
-				return i;
+		
+		float accum = 0;
+		for (auto it=begin; it!=end; ++it) {
+			accum += get_weight(it);
+			if (val < accum)
+				return it;
 		}
-		return i; // should only happen if val==total, which shoule be rare
+		return --end;
 	}
 };
+
+template <typename K, typename V, typename FUNC>
+WeightedChoice< typename std::unordered_map<K,V>::iterator, FUNC > weighted_choice (std::unordered_map<K,V>& map, FUNC get_weight) {
+	return WeightedChoice(map.begin(), map.end(), get_weight);
+}
+template <typename T, typename FUNC>
+WeightedChoice< typename std::vector<T>::iterator, FUNC > weighted_choice (std::vector<T>& vec, FUNC get_weight) {
+	return WeightedChoice(vec.begin(), vec.end(), get_weight);
+}
 
 uint64_t get_initial_random_seed ();
 
