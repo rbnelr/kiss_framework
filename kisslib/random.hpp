@@ -121,7 +121,7 @@ struct WeightedChoice {
 	WeightedChoice (IT begin, IT end, FUNC get_weight): begin{begin}, end{end}, get_weight{get_weight} {
 		float accum = 0;
 		for (auto it=begin; it!=end; ++it) {
-			accum += get_weight(it);
+			accum += get_weight(*it);
 		}
 		total = accum;
 	}
@@ -135,7 +135,7 @@ struct WeightedChoice {
 		
 		float accum = 0;
 		for (auto it=begin; it!=end; ++it) {
-			accum += get_weight(it);
+			accum += get_weight(*it);
 			if (val < accum)
 				return it;
 		}
