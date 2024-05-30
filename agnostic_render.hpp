@@ -195,7 +195,10 @@ struct DebugDraw {
 
 	void point (float3 const& pos, float3 const& size, lrgba const& col);
 	void line (float3 const& a, float3 const& b, lrgba const& col);
+	// arrowhead facing camera
 	void arrow (View3D const& view, float3 const& pos, float3 const& dir, float head_sz, lrgba const& col);
+	// flat, arrowhead lying down
+	void arrow (float3 const& pos, float3 const& dir, float head_sz, lrgba const& col);
 
 	void wire_quad (float3 const& pos, float2 size, lrgba const& col);
 	void wire_cube (float3 const& pos, float3 const& size, lrgba const& col);

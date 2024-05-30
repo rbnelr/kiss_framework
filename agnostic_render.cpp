@@ -29,6 +29,25 @@ void DebugDraw::arrow (View3D const& view, float3 const& pos, float3 const& dir,
 	*out++ = { tip + (-left_vec - forw_dir) * head_sz, col };
 }
 
+void DebugDraw::arrow (float3 const& pos, float3 const& dir, float head_sz, lrgba const& col) {
+	float3 forw_dir = normalizesafe(dir);
+
+	float3 left_vec = float3(rotate90((float2)forw_dir), 0);
+	
+	float3 tip = pos + dir;
+	auto* out = push_back(lines, 6);
+
+
+	*out++ = { pos, col };
+	*out++ = { tip, col };
+	
+	*out++ = { tip, col };
+	*out++ = { tip + (+left_vec - forw_dir) * head_sz, col };
+
+	*out++ = { tip, col };
+	*out++ = { tip + (-left_vec - forw_dir) * head_sz, col };
+}
+
 void DebugDraw::point (float3 const& pos, float3 const& size, lrgba const& col) {
 	auto* out = push_back(lines, 8);
 
