@@ -6,11 +6,11 @@ namespace render {
 	
 struct Attribute {
 	enum Type {
-		FLT, FLT2, FLT3, FLT4,
-		INT, INT2, INT3, INT4,
+		FLT, INT, UBYTE
 	};
 
-	Type type; // Attribute::FLT/FLT2/FLT3/FLT4 INT/INT2/INT3/INT4
+	Type type; // for example type,components like Attribute::FLT,3
+	int components;
 	int stride; // usually sizeof(Vertex_struct)
 	int offset; // usually offsetof(Vertex_struct, member)
 };
@@ -37,7 +37,7 @@ inline constexpr VertexAttributes<N> _make_attribs (std::array<render::Attribute
 	};
 */
 #define VERTEX_CONFIG(...)           static inline constexpr auto attribs () { return _make_attribs(std::array{__VA_ARGS__}); }
-#define ATTRIB(type, VertexType, member) render::Attribute{render::Attribute::type, (int)sizeof(VertexType), (int)offsetof(VertexType, member)}
+#define ATTRIB(type, comps, VertexType, member) render::Attribute{render::Attribute::type, comps, (int)sizeof(VertexType), (int)offsetof(VertexType, member)}
 
 namespace shapes {
 	// Generic Vertex with all info for common shapes, use copy out only the info you need
@@ -48,9 +48,9 @@ namespace shapes {
 		// TODO: tangent ?
 
 		VERTEX_CONFIG(
-			ATTRIB(FLT3, GenericVertex, pos),
-			ATTRIB(FLT3, GenericVertex, norm),
-			ATTRIB(FLT2, GenericVertex, uv),
+			ATTRIB(FLT,3, GenericVertex, pos),
+			ATTRIB(FLT,3, GenericVertex, norm),
+			ATTRIB(FLT,2, GenericVertex, uv),
 		)
 	};
 
@@ -147,8 +147,8 @@ struct DebugDraw {
 		float4 col;
 
 		VERTEX_CONFIG(
-			ATTRIB(FLT3, LineVertex, pos),
-			ATTRIB(FLT4, LineVertex, col),
+			ATTRIB(FLT,3, LineVertex, pos),
+			ATTRIB(FLT,4, LineVertex, col),
 		)
 	};
 	struct TriVertex {
@@ -157,9 +157,9 @@ struct DebugDraw {
 		float4 col;
 
 		VERTEX_CONFIG(
-			ATTRIB(FLT3, TriVertex, pos),
-			ATTRIB(FLT3, TriVertex, norm),
-			ATTRIB(FLT4, TriVertex, col),
+			ATTRIB(FLT,3, TriVertex, pos),
+			ATTRIB(FLT,3, TriVertex, norm),
+			ATTRIB(FLT,4, TriVertex, col),
 		)
 	};
 

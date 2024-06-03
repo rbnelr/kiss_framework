@@ -96,7 +96,7 @@ struct TextRenderer {
 		float2 pos;
 
 		VERTEX_CONFIG(
-			ATTRIB(FLT2, GlyphQuad, pos),
+			ATTRIB(FLT,2, GlyphQuad, pos),
 		)
 	};
 	static constexpr GlyphQuad GLYPH_QUAD[4] = {
@@ -112,9 +112,9 @@ struct TextRenderer {
 		float4 text_col;
 		
 		VERTEX_CONFIG(
-			ATTRIB(FLT4, GlyphInstance, px_rect),
-			ATTRIB(FLT4, GlyphInstance, uv_rect),
-			ATTRIB(FLT4, GlyphInstance, text_col),
+			ATTRIB(FLT,4, GlyphInstance, px_rect),
+			ATTRIB(FLT,4, GlyphInstance, uv_rect),
+			ATTRIB(FLT,4, GlyphInstance, text_col),
 		)
 	};
 

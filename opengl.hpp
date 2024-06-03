@@ -631,24 +631,13 @@ struct VertexBufferInstancedI {
 //// VAO Attribute creation helper using Generic Render VERTEX_CONFIG
 struct GLAttrib {
 	GLenum scalar_type; // what (scalar) type is the data in
-	int components;     // how many vector components (1-4)
 	bool int_in_shader; // should it be read as int in vertex shader? (can convert int data to float)
 	bool normalized;    // should int be normalized to 0.0-1.0 range? (when int data is read as float)
 };
 static constexpr inline GLAttrib ATTRIB_GL_TYPES[] = {
-	{ GL_FLOAT, 1, false, false },
-	{ GL_FLOAT, 2, false, false },
-	{ GL_FLOAT, 3, false, false },
-	{ GL_FLOAT, 4, false, false },
-
-	{ GL_INT, 1, true, false },
-	{ GL_INT, 2, true, false },
-	{ GL_INT, 3, true, false },
-	{ GL_INT, 4, true, false },
-};
-static constexpr inline int ATTRIB_TYPE_COMPONENTS[] = {
-	1, 2, 3, 4,
-	1, 2, 3, 4,
+	{ GL_FLOAT,         false, false },
+	{ GL_INT,           true, false },
+	{ GL_UNSIGNED_BYTE, true, false },
 };
 
 template <size_t N>
@@ -665,14 +654,14 @@ inline int setup_vao_attribs (render::VertexAttributes<N> const& attribs, int id
 		}
 
 		assert(a.stride > 0);
-		assert(gltype.components > 0 && gltype.components <= 4);
+		assert(a.components > 0 && a.components <= 4);
 
 		if (gltype.int_in_shader) {
-			glVertexAttribIPointer(idx, gltype.components, gltype.scalar_type,
+			glVertexAttribIPointer(idx, a.components, gltype.scalar_type,
 				a.stride, (void*)((size_t)a.offset + base_offs));
 		}
 		else {
-			glVertexAttribPointer(idx, gltype.components, gltype.scalar_type, gltype.normalized,
+			glVertexAttribPointer(idx, a.components, gltype.scalar_type, gltype.normalized,
 				a.stride, (void*)((size_t)a.offset + base_offs));
 		}
 
