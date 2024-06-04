@@ -67,6 +67,7 @@ void APIENTRY debug_callback (GLenum source, GLenum type, GLuint id, GLenum seve
 	}
 
 	fprintf(stderr, "[OpenGL] debug message: severity:%s  src:%s  type:%s  id:%d\n%.*s\n", severity_str, src_str, type_str, id, length, message); // message is not null terminated, pass explicit length
+	fflush(stderr);
 
 #if RENDERER_DEBUG_OUTPUT_BREAKPOINT
 	if (severity == GL_DEBUG_SEVERITY_HIGH_ARB)
