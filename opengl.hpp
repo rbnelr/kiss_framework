@@ -1138,6 +1138,9 @@ template<> inline void _upload_texture2D<srgba8> (GLenum targ, Image<srgba8>& im
 template<> inline void _upload_texture2D<float> (GLenum targ, Image<float>& img) {
 	glTexImage2D(GL_TEXTURE_2D, 0, GL_R32F, img.size.x, img.size.y, 0, GL_RED, GL_FLOAT, img.pixels);
 }
+template<> inline void _upload_texture2D<uint16_t> (GLenum targ, Image<uint16_t>& img) {
+	glTexImage2D(GL_TEXTURE_2D, 0, GL_R16, img.size.x, img.size.y, 0, GL_RED, GL_UNSIGNED_SHORT, img.pixels);
+}
 
 template <typename T>
 inline bool upload_texture2D (GLuint tex, const char* filepath, bool mips=true) {

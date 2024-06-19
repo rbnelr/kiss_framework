@@ -22,6 +22,9 @@ namespace {
 	template<> constexpr inline _Format get_format<uint8v3> () { return { false, 8, 3 }; } // srgb
 	template<> constexpr inline _Format get_format<uint8v4> () { return { false, 8, 4 }; } // srgb + alpha
 
+	// 16 bit uint channels
+	template<> constexpr inline _Format get_format<uint16_t> () { return { false, 16, 1 }; } // greyscale (TODO: gamma??)
+
 	// float channels
 	template<> constexpr inline _Format get_format<float  > () { return { true, 32, 1 }; } // greyscale (linear)
 	template<> constexpr inline _Format get_format<float2 > () { return { true, 32, 2 }; } // greyscale (linear) + alpha
