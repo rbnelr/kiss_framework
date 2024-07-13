@@ -328,7 +328,7 @@ void update_files_changed (Engine& eng) {
 	}
 	
 	if (changed_files.any()) {
-		ZoneScopedN("reload");
+		ZoneScopedN("file change detected");
 		
 		//// Repeat reloading of assets because reacting to filechanges often fails because of half-written files
 		//int max_retries = 100;
@@ -338,6 +338,8 @@ void update_files_changed (Engine& eng) {
 		//	Sleep(retry_delay); // start out with a delay in hopes of getting a working file the first time
 			
 			bool success = ogl::g_shaders.update_recompilation(changed_files);
+
+			success = eng.update_files_changed(changed_files) && success;
 			
 			/*
 			if (changed_files.any_starts_with("textures/", FILE_ADDED|FILE_MODIFIED|FILE_RENAMED_NEW_NAME)) {

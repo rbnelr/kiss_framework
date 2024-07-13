@@ -73,6 +73,8 @@ struct Engine {
 	virtual void imgui () = 0;
 	virtual void frame () = 0;
 
+	virtual bool update_files_changed (kiss::ChangedFiles& changed_files) = 0;
+
 	virtual void json_load () = 0;
 	virtual void json_save () = 0;
 
