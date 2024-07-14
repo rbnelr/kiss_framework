@@ -767,6 +767,57 @@ inline void _debug_vao (std::string msg="") {
 //// Workaround to fix opengl global state
 //
 namespace state {
+	struct TextureBind {
+		struct _Texture {
+			GLenum type;
+			GLuint tex;
+
+			_Texture (GLenum type, GLuint tex): type{type}, tex{tex} {}
+
+			_Texture (): type{0}, tex{0} {}
+			_Texture (Texture1D      const& tex): type{ GL_TEXTURE_1D       }, tex{tex} {}
+			_Texture (Texture1DArray const& tex): type{ GL_TEXTURE_1D_ARRAY }, tex{tex} {}
+			_Texture (Texture2D      const& tex): type{ GL_TEXTURE_2D       }, tex{tex} {}
+			_Texture (Texture3D      const& tex): type{ GL_TEXTURE_3D       }, tex{tex} {}
+			_Texture (Texture2DArray const& tex): type{ GL_TEXTURE_2D_ARRAY }, tex{tex} {}
+		};
+		std::string_view	uniform_name;
+		_Texture			tex;
+		GLuint				sampler;
+
+		TextureBind (): uniform_name{}, tex{} {} // null -> empty texture unit
+
+		// allow no null sampler
+		TextureBind (std::string_view uniform_name, _Texture const& tex)
+			: uniform_name{uniform_name}, tex{tex}, sampler{0} {}
+		TextureBind (std::string_view uniform_name, _Texture const& tex, Sampler const& sampl)
+			: uniform_name{uniform_name}, tex{tex}, sampler{sampl} {}
+	};
+
+	struct TextureBinds {
+		std::vector<TextureBind> vec;
+		
+		TextureBinds& operator+= (TextureBind const& r) {
+			vec.push_back(r);
+			return *this;
+		}
+		TextureBinds& operator+= (TextureBinds const& r) {
+			vec.insert(vec.end(), r.vec.begin(), r.vec.end());
+			return *this;
+		}
+
+		friend TextureBinds operator+ (TextureBinds const& l, TextureBinds const& r) {
+			TextureBinds b = l;
+			b += r;
+			return l;
+		}
+		friend TextureBinds operator+ (TextureBinds const& l, TextureBind const& r) {
+			TextureBinds b = l;
+			b += r;
+			return l;
+		}
+	};
+
 	enum DepthFunc {
 		DEPTH_INFRONT, // normal: draw infront (or equal depth) of other things
 		DEPTH_BEHIND, // inverted: draw behind other things
@@ -983,33 +1034,6 @@ namespace state {
 
 		std::vector<GLenum> bound_texture_types;
 
-		struct TextureBind {
-			struct _Texture {
-				GLenum type;
-				GLuint tex;
-
-				_Texture (GLenum type, GLuint tex): type{type}, tex{tex} {}
-
-				_Texture (): type{0}, tex{0} {}
-				_Texture (Texture1D      const& tex): type{ GL_TEXTURE_1D       }, tex{tex} {}
-				_Texture (Texture1DArray const& tex): type{ GL_TEXTURE_1D_ARRAY }, tex{tex} {}
-				_Texture (Texture2D      const& tex): type{ GL_TEXTURE_2D       }, tex{tex} {}
-				_Texture (Texture3D      const& tex): type{ GL_TEXTURE_3D       }, tex{tex} {}
-				_Texture (Texture2DArray const& tex): type{ GL_TEXTURE_2D_ARRAY }, tex{tex} {}
-			};
-			std::string_view	uniform_name;
-			_Texture			tex;
-			GLuint				sampler;
-
-			TextureBind (): uniform_name{}, tex{} {} // null -> empty texture unit
-
-			// allow no null sampler
-			TextureBind (std::string_view uniform_name, _Texture const& tex)
-				: uniform_name{uniform_name}, tex{tex}, sampler{0} {}
-			TextureBind (std::string_view uniform_name, _Texture const& tex, Sampler const& sampl)
-				: uniform_name{uniform_name}, tex{tex}, sampler{sampl} {}
-		};
-
 		// bind a set of textures into texture units
 		// and assign them to shader uniform samplers
 		void bind_textures (Shader* shad, TextureBind const* textures, size_t count) {
@@ -1061,8 +1085,8 @@ namespace state {
 		void bind_textures (Shader* shad, std::initializer_list<TextureBind> textures) {
 			bind_textures(shad, textures.begin(), textures.size());
 		}
-		void bind_textures (Shader* shad, std::vector<TextureBind> const& textures) {
-			bind_textures(shad, textures.data(), textures.size());
+		void bind_textures (Shader* shad, TextureBinds const& textures) {
+			bind_textures(shad, textures.vec.data(), textures.vec.size());
 		}
 	};
 }
@@ -1127,29 +1151,23 @@ inline int calc_mipmaps (int w, int h) {
 }
 
 template <typename T>
-inline void _upload_texture2D (GLenum targ, Image<T>& img);
+inline void _upload_texture2D (GLenum targ, Image<T> const& img);
 
-template<> inline void _upload_texture2D<srgb8> (GLenum targ, Image<srgb8>& img) {
+template<> inline void _upload_texture2D<srgb8> (GLenum targ, Image<srgb8> const& img) {
 	glTexImage2D(GL_TEXTURE_2D, 0, GL_SRGB8, img.size.x, img.size.y, 0, GL_RGB, GL_UNSIGNED_BYTE, img.pixels);
 }
-template<> inline void _upload_texture2D<srgba8> (GLenum targ, Image<srgba8>& img) {
+template<> inline void _upload_texture2D<srgba8> (GLenum targ, Image<srgba8> const& img) {
 	glTexImage2D(GL_TEXTURE_2D, 0, GL_SRGB8_ALPHA8, img.size.x, img.size.y, 0, GL_RGBA, GL_UNSIGNED_BYTE, img.pixels);
 }
-template<> inline void _upload_texture2D<float> (GLenum targ, Image<float>& img) {
+template<> inline void _upload_texture2D<float> (GLenum targ, Image<float> const& img) {
 	glTexImage2D(GL_TEXTURE_2D, 0, GL_R32F, img.size.x, img.size.y, 0, GL_RED, GL_FLOAT, img.pixels);
 }
-template<> inline void _upload_texture2D<uint16_t> (GLenum targ, Image<uint16_t>& img) {
+template<> inline void _upload_texture2D<uint16_t> (GLenum targ, Image<uint16_t> const& img) {
 	glTexImage2D(GL_TEXTURE_2D, 0, GL_R16, img.size.x, img.size.y, 0, GL_RED, GL_UNSIGNED_SHORT, img.pixels);
 }
 
 template <typename T>
-inline bool upload_texture2D (GLuint tex, const char* filepath, bool mips=true) {
-	Image<T> img;
-	if (!Image<T>::load_from_file(filepath, &img)) {
-		fprintf(stderr, "Error! Could not load texture \"%s\"", filepath);
-		return false;
-	}
-
+inline void upload_image2D (GLuint tex, Image<T> const& img, bool mips=true) {
 	glBindTexture(GL_TEXTURE_2D, tex);
 	_upload_texture2D(GL_TEXTURE_2D, img);
 
@@ -1161,6 +1179,17 @@ inline bool upload_texture2D (GLuint tex, const char* filepath, bool mips=true) 
 	}
 
 	glBindTexture(GL_TEXTURE_2D, 0);
+}
+
+template <typename T>
+inline bool upload_texture2D (GLuint tex, const char* filepath, bool mips=true) {
+	Image<T> img;
+	if (!Image<T>::load_from_file(filepath, &img)) {
+		fprintf(stderr, "Error! Could not load texture \"%s\"\n", filepath);
+		return false;
+	}
+
+	upload_image2D(tex, img, mips);
 	return true;
 }
 template <typename T>
