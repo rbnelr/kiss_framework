@@ -20,6 +20,9 @@ namespace kiss {
 	// remove whitespace at front and back
 	std::string_view trim (std::string_view sv);
 
+	void to_upper_inplace (std::string& str);
+	std::string to_upper (std::string_view str);
+
 	inline std::string operator+ (std::string_view const& l, std::string_view const& r) {
 		std::string s;
 		s.reserve(l.size() + r.size()); // null terminator is implicit see https://stackoverflow.com/questions/30111288/stdstringreserve-and-end-of-string-0

@@ -497,6 +497,24 @@ public:
 
 	operator GLuint () const { return tex; }
 };
+class TextureCubemap {
+	GLuint tex = 0;
+public:
+	MOVE_ONLY_CLASS_MEMBER(TextureCubemap, tex);
+
+	TextureCubemap () {} // not allocated
+	TextureCubemap (std::string_view label) { // allocate
+		glGenTextures(1, &tex);
+		glBindTexture(GL_TEXTURE_CUBE_MAP, tex);
+		OGL_DBG_LABEL(GL_TEXTURE, tex, label);
+		glBindTexture(GL_TEXTURE_CUBE_MAP, 0);
+	}
+	~TextureCubemap () {
+		if (tex) glDeleteTextures(1, &tex);
+	}
+
+	operator GLuint () const { return tex; }
+};
 class Fbo {
 	GLuint fbo = 0;
 public:
@@ -780,6 +798,7 @@ namespace state {
 			_Texture (Texture2D      const& tex): type{ GL_TEXTURE_2D       }, tex{tex} {}
 			_Texture (Texture3D      const& tex): type{ GL_TEXTURE_3D       }, tex{tex} {}
 			_Texture (Texture2DArray const& tex): type{ GL_TEXTURE_2D_ARRAY }, tex{tex} {}
+			_Texture (TextureCubemap const& tex): type{ GL_TEXTURE_CUBE_MAP }, tex{tex} {}
 		};
 		std::string_view	uniform_name;
 		_Texture			tex;
@@ -1043,12 +1062,16 @@ namespace state {
 				auto& to_bind = textures[i];
 				auto& bound_type = bound_texture_types[i];
 			
-				glActiveTexture((GLenum)(GL_TEXTURE0 + i));
+				bool unbind_old = to_bind.tex.type != bound_type && bound_type != 0;
+				bool bind_new   = to_bind.tex.type != 0;
+
+				if (unbind_old || bind_new)
+					glActiveTexture((GLenum)(GL_TEXTURE0 + i));
 
 				// can have multiple textures of differing types bound in the same texture unit
 				// this is super confusing in the graphics debugger, unbind if previous texture is a different type
 				// (otherwise we overwrite it anyway, this just saves one gl call)
-				if (to_bind.tex.type != bound_type && bound_type != 0) {
+				if (unbind_old) {
 					glBindTexture(bound_type, 0); // unbind previous
 					glBindSampler((GLuint)i, 0);
 				}
@@ -1056,7 +1079,7 @@ namespace state {
 				// overwrite previous texture binding
 				// could try to optimize this by detecting when rebinding same texture,
 				// but at that point should just avoid calling this and do it manually keep it bound instead
-				if (to_bind.tex.type != 0) {
+				if (bind_new) {
 					glBindSampler((GLuint)i, to_bind.sampler);
 
 					glBindTexture(to_bind.tex.type, to_bind.tex.tex); // bind new
@@ -1124,6 +1147,7 @@ inline Sampler make_sampler (std::string_view label, TexFilterMode filter, GLenu
 
 	glSamplerParameteri(sampler, GL_TEXTURE_WRAP_S, wrap_mode);
 	glSamplerParameteri(sampler, GL_TEXTURE_WRAP_T, wrap_mode);
+	//glSamplerParameteri(sampler, GL_TEXTURE_WRAP_R, wrap_mode);
 
 	if (wrap_mode == GL_CLAMP_TO_BORDER) {
 		glSamplerParameterfv(sampler, GL_TEXTURE_BORDER_COLOR, &border_col.x);
@@ -1138,16 +1162,13 @@ inline Sampler make_sampler (std::string_view label, TexFilterMode filter, GLenu
 }
 
 inline int calc_mipmaps (int w, int h) {
-	int count = 0;
-	for (;;) {
-		count++;
-		if (w == 1 && h == 1)
-			break;
-
-		w = max(w / 2, 1);
-		h = max(h / 2, 1);
-	}
-	return count;
+	return floori(log2f((float)max(w, h))) + 1;
+	//for (int count=1;; count++) {
+	//	if (w == 1 && h == 1)
+	//		return count;
+	//	w = max(w / 2, 1);
+	//	h = max(h / 2, 1);
+	//}
 }
 
 template <typename T>

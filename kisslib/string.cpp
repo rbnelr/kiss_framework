@@ -66,6 +66,17 @@ namespace kiss {
 		return sv.substr(start, end - start);
 	}
 
+	void to_upper_inplace (std::string& str) {
+		for (char& c : str) {
+			c = (char)toupper(c);
+		}
+	}
+	std::string to_upper (std::string_view str) {
+		std::string s = std::string(str);
+		to_upper_inplace(s);
+		return s;
+	}
+
 #ifdef _WIN32
 	#ifndef WC_ERR_INVALID_CHARS
 		// mingw does not have this define for some reason?

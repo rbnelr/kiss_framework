@@ -119,7 +119,25 @@ GLuint Shader::compile_shader (const char* name, const char* vertex, const char*
 }
 */
 
+// Quick hack to find out if we are on nvidia
+bool gl_is_nvidia () {
+	static int vendor_NV = -1;
+	if (vendor_NV == -1) {
+		// Find vendor once
+		std::string str = (const char*)glGetString(GL_VENDOR);
+		vendor_NV = kiss::contains(kiss::to_upper(str), "NVIDIA") ? 1 : 0;
+	}
+	return vendor_NV == 1;
+}
+
 namespace shader {
+	void line_marker (std::string* result, int line, char const* filename, int fileidx) {
+		if (gl_is_nvidia())
+			prints(result, "#line %d \"%s\"\n", line, filename); // only works on nvidia
+		else
+			prints(result, "\n#line %d %d\n", line, fileidx);
+	}
+
 	bool preprocess_include_file (char const* shader_name, char const* filename, std::string* result, std::vector<std::string>* src_files) {
 		using namespace parse;
 
@@ -128,10 +146,9 @@ namespace shader {
 			fileidx = (int)src_files->size();
 			src_files->push_back(filename);
 		}
-	
+
 		if (!result->empty()) { // not allowed to come before #version macro
-			//prints(result, "#line 1 \"%s\"\n", filename); // only works on nvidia
-			prints(result, "#line 1 %d\n", fileidx);
+			line_marker(result, 1, filename, fileidx);
 		}
 
 		std::string source;
@@ -172,8 +189,7 @@ namespace shader {
 						if (!preprocess_include_file(shader_name, inc_filepath.c_str(), result, src_files)) // include file text instead of ' #include "filename" '
 							success = false;
 
-						//prints(result, "#line %d \"%s\"\n", line_no, filename);
-						prints(result, "#line %d %d\n", line_no, fileidx);
+						line_marker(result, line_no, filename, fileidx);
 
 						line = c; // set line to after ' #include "filename" '
 					}
