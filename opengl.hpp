@@ -75,6 +75,27 @@ template<> inline constexpr GLenum get_gl_idx_type<uint32_t> () { return GL_UNSI
 
 void APIENTRY debug_callback (GLenum source, GLenum type, GLuint id, GLenum severity, GLsizei length, const char* message, void const* userParam);
 
+inline const char* enum2str (GLenum enum_val) {
+	// Add to here as needed
+	switch (enum_val) {
+		case GL_BOOL        : return "GL_BOOL";
+		case GL_FLOAT       : return "GL_FLOAT";
+		case GL_FLOAT_VEC2  : return "GL_FLOAT_VEC2";
+		case GL_FLOAT_VEC3  : return "GL_FLOAT_VEC3";
+		case GL_FLOAT_VEC4  : return "GL_FLOAT_VEC4";
+		case GL_INT         : return "GL_INT";
+		case GL_UNSIGNED_INT: return "GL_UNSIGNED_INT";
+		case GL_INT_VEC2    : return "GL_INT_VEC2";
+		case GL_INT_VEC3    : return "GL_INT_VEC3";
+		case GL_INT_VEC4    : return "GL_INT_VEC4";
+		case GL_FLOAT_MAT2  : return "GL_FLOAT_MAT2";
+		case GL_FLOAT_MAT3  : return "GL_FLOAT_MAT3";
+		case GL_FLOAT_MAT4  : return "GL_FLOAT_MAT4";
+
+		default: return "<unknown>";
+	}
+}
+
 //
 //// Shader manager
 //
@@ -91,7 +112,7 @@ namespace shader {
 	inline void _check_uniform (Uniform& u, GLenum passed) {
 		if (u.type == passed) return;
 		if (passed == GL_INT && (u.type == GL_SAMPLER_1D || u.type == GL_SAMPLER_2D || u.type == GL_SAMPLER_3D)) return;
-		fprintf(stderr, "%x\n", u.type);
+		fprintf(stderr, "ogl::set_uniform type mismatch: uniform: %s[%x], passed: %s[%x]\n", enum2str(u.type), u.type, enum2str(passed), passed);
 		assert(false);
 	}
 

@@ -35,6 +35,8 @@ void APIENTRY debug_callback (GLenum source, GLenum type, GLuint id, GLenum seve
 		case 1281:
 		case 5145:
 			return; // shader compile error?
+		case 1282:
+			return; // using shader with compile error, don't care, i'm going to fix it
 		default:
 			break;
 	}
