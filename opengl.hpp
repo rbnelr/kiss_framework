@@ -849,12 +849,12 @@ namespace state {
 		friend TextureBinds operator+ (TextureBinds const& l, TextureBinds const& r) {
 			TextureBinds b = l;
 			b += r;
-			return l;
+			return b;
 		}
 		friend TextureBinds operator+ (TextureBinds const& l, TextureBind const& r) {
 			TextureBinds b = l;
 			b += r;
-			return l;
+			return b;
 		}
 	};
 
