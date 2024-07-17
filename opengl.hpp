@@ -555,6 +555,60 @@ public:
 	operator GLuint () const { return fbo; }
 };
 
+inline Fbo make_and_bind_temp_fbo (GLuint textarget, GLuint tex, int mip) {
+	auto fbo = Fbo("tmp_fbo");
+	glBindFramebuffer(GL_FRAMEBUFFER, fbo);
+
+	glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, textarget, tex, mip);
+	GLuint bufs[] = { GL_COLOR_ATTACHMENT0 };
+	glDrawBuffers(ARRLEN(bufs), bufs);
+		
+	GLenum status = glCheckFramebufferStatus(GL_FRAMEBUFFER);
+	if (status != GL_FRAMEBUFFER_COMPLETE) {
+		//fprintf(stderr, "glCheckFramebufferStatus: %x\n", status);
+		assert(false);
+	}
+	return fbo;
+}
+inline Fbo make_and_bind_temp_fbo_layered (GLuint tex, int mip) {
+	auto fbo = Fbo("tmp_fbo");
+	glBindFramebuffer(GL_FRAMEBUFFER, fbo);
+
+	// attaches entire eg. cubemap as "layered image" which using a geometry shader, can be draw to in a single drawcall
+	// NOTE: glFramebufferTextureLayer seems to attach a particular layer of the cubemap as single image, just like glFramebufferTexture2D(.., GL_TEXTURE_CUBE_MAP_POSITIVE_X, ...)
+	glFramebufferTexture(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, tex, mip);
+	GLuint bufs[] = { GL_COLOR_ATTACHMENT0 };
+	glDrawBuffers(ARRLEN(bufs), bufs);
+		
+	GLenum status = glCheckFramebufferStatus(GL_FRAMEBUFFER);
+	if (status != GL_FRAMEBUFFER_COMPLETE) {
+		//fprintf(stderr, "glCheckFramebufferStatus: %x\n", status);
+		assert(false);
+	}
+	return fbo;
+}
+
+/*
+// WARNING: This is ungodly slow for whatever reason, like 1.5ms to copy some cubemap mipmaps
+// while generating them using 512 samples per texel with math and texture access takes ~2ms
+inline void copy_texels (GLenum textarget,
+		GLuint src, GLint src_mip, int2 srcXY0, int2 srcXY1,
+		GLuint dst, GLint dst_mip, int2 dstXY0, int2 dstXY1,
+		GLbitfield mask=GL_COLOR_BUFFER_BIT, GLenum filter=GL_NEAREST) {
+	auto src_fbo = make_and_bind_temp_fbo(textarget, src, src_mip);
+	auto dst_fbo = make_and_bind_temp_fbo(textarget, dst, dst_mip);
+	glBindFramebuffer(GL_READ_FRAMEBUFFER, src_fbo);
+	glBindFramebuffer(GL_DRAW_FRAMEBUFFER, dst_fbo);
+
+	glBlitFramebuffer(
+		srcXY0.x,srcXY0.y, srcXY1.x,srcXY1.y,
+		dstXY0.x,dstXY0.y, dstXY1.x,dstXY1.y,
+		mask, filter);
+
+	glBindFramebuffer(GL_READ_FRAMEBUFFER, 0);
+	glBindFramebuffer(GL_DRAW_FRAMEBUFFER, 0);
+}*/
+
 //
 //// VBO helper functions and classes
 //
