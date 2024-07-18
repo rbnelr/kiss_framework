@@ -609,6 +609,11 @@ inline void copy_texels (GLenum textarget,
 	glBindFramebuffer(GL_DRAW_FRAMEBUFFER, 0);
 }*/
 
+inline void dispatch_compute (int3 count, int3 workgroup_size) {
+	int3 dispatch_size = (count + workgroup_size-1) / workgroup_size; // round up
+	glDispatchCompute((GLuint)dispatch_size.x, (GLuint)dispatch_size.y, (GLuint)dispatch_size.z);
+}
+
 //
 //// VBO helper functions and classes
 //
