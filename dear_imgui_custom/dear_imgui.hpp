@@ -11,7 +11,7 @@
 #include <vector>
 
 template <typename T, typename FUNC>
-bool imgui_edit_vector (const char* label, std::vector<T>& vec, FUNC item, bool can_resize=true, bool default_open=true) {
+bool imgui_edit_vector (const char* label, std::vector<T>& vec, FUNC item, bool can_resize=true, bool default_open=true, bool subnodes=true) {
 	if (!ImGui::TreeNodeEx(label, default_open ? ImGuiTreeNodeFlags_DefaultOpen : 0)) return false;
 	
 	bool changed = false;
@@ -24,10 +24,19 @@ bool imgui_edit_vector (const char* label, std::vector<T>& vec, FUNC item, bool 
 		}
 	}
 
-	for (int i=0; i<(int)vec.size(); ++i) {
-		if (ImGui::TreeNodeEx(&vec[i], 0, "[%d]", i)) {
-			changed = item(vec[i]) || changed;
-			ImGui::TreePop();
+	if (subnodes) {
+		for (int i=0; i<(int)vec.size(); ++i) {
+			if (ImGui::TreeNodeEx(&vec[i], 0, "[%d]", i)) {
+				changed = item(i, vec[i]) || changed;
+				ImGui::TreePop();
+			}
+		}
+	}
+	else {
+		for (int i=0; i<(int)vec.size(); ++i) {
+			ImGui::PushID(i);
+			changed = item(i, vec[i]) || changed;
+			ImGui::PopID();
 		}
 	}
 
