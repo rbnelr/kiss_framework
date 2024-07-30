@@ -1176,8 +1176,8 @@ namespace state {
 			for (int i=(int)count; i<(int)bound_texture_types.size(); ++i) {
 				auto& bound_type = bound_texture_types[i];
 
-				glActiveTexture((GLenum)(GL_TEXTURE0 + i));
 				if (bound_type != 0) {
+					glActiveTexture((GLenum)(GL_TEXTURE0 + i));
 					// unbind previous
 					glBindSampler((GLuint)i, 0);
 					glBindTexture(bound_type, 0);
