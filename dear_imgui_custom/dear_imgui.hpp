@@ -334,3 +334,39 @@ struct ValuePlotter {
 		}
 	}
 };
+
+struct DistributionPlotter {
+	int num_buckets = 64;
+	int plot_height = 200;
+	
+	template <typename FUNC>
+	void plot_distribution (const char* name, int values, FUNC get_value, float xmin, float xmax, bool default_open=true) {
+		if (ImGui::TreeNodeEx(name, default_open ? ImGuiTreeNodeFlags_DefaultOpen : 0)) {
+			
+			std::vector<float> buckets(num_buckets, 0.0f);
+			
+			for (int i=0; i<values; ++i) {
+				float val = get_value(i);
+				int idx = floori(map(val, xmin, xmax) * (float)num_buckets);
+				buckets[clamp(idx, 0, num_buckets-1)] += 1.0f;
+			}
+			
+			float ymin = -0.5f;
+			float ymax = +0.5f;
+			
+			for (auto& val : buckets) {
+				ymax = max(ymax, val);
+			}
+
+			ImGui::SetNextItemWidth(-1);
+			ImGui::PlotHistogram("##histo_plot", buckets.data(), num_buckets, 0, 0, ymin, ymax, float2(0, (float)plot_height));
+
+			if (ImGui::BeginPopupContextItem("##plot popup")) {
+				ImGui::SliderInt("plot_height", &plot_height, 20, 120);
+				ImGui::SliderInt("num_buckets", &num_buckets, 10, 256);
+				ImGui::EndPopup();
+			}
+			ImGui::TreePop();
+		}
+	}
+};
