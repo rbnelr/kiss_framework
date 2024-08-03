@@ -21,7 +21,7 @@ struct _Random {
 	}
 
 	inline bool chance (float prob=0.5f) {
-		std::bernoulli_distribution	distribution (prob);
+		std::bernoulli_distribution	distribution (prob); // clamp to avoid asserts?
 		return distribution(generator);
 	}
 

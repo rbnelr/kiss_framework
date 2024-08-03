@@ -133,6 +133,7 @@ _Defer<Func> _defer (Func func) {
 	CLASS (CLASS&& r) = delete;
 
 // Enumeration bit operators, for using enums as bitfields (very useful because visual studio shows them like "VAL1(1) | VAL2(8) | 128")
+// or, and, xor, not operators which return enum type (at your own risk)
 #define ENUM_BITFLAG_OPERATORS_TYPE(e, itype) \
 	inline constexpr e operator| (e l, e r) { return (e)((itype)l | (itype)r); } \
 	inline constexpr e operator& (e l, e r) { return (e)((itype)l & (itype)r); } \
