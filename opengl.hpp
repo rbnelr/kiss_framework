@@ -636,6 +636,10 @@ inline void stream_buffer (GLenum target, GLuint buf, size_t size, void const* d
 
 	glBindBuffer(target, 0);
 }
+template <typename T>
+inline void stream_buffer (GLenum target, GLuint buf, std::vector<T> const& data, GLenum usage = GL_STREAM_DRAW) {
+	stream_buffer(target, buf, sizeof(T)*data.size(), data.data(), usage);
+}
 
 // Non-indexed (VAO + VBO) with uploading functions (vao configured externally)
 struct VertexBuffer {
