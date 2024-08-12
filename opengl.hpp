@@ -1231,7 +1231,7 @@ inline Sampler make_sampler (std::string_view label, TexFilterMode filter, GLenu
 
 	glSamplerParameteri(sampler, GL_TEXTURE_WRAP_S, wrap_mode);
 	glSamplerParameteri(sampler, GL_TEXTURE_WRAP_T, wrap_mode);
-	//glSamplerParameteri(sampler, GL_TEXTURE_WRAP_R, wrap_mode);
+	glSamplerParameteri(sampler, GL_TEXTURE_WRAP_R, wrap_mode);
 
 	if (wrap_mode == GL_CLAMP_TO_BORDER) {
 		glSamplerParameterfv(sampler, GL_TEXTURE_BORDER_COLOR, &border_col.x);
@@ -1259,16 +1259,16 @@ template <typename T>
 inline void _upload_texture2D (GLenum targ, Image<T> const& img);
 
 template<> inline void _upload_texture2D<srgb8> (GLenum targ, Image<srgb8> const& img) {
-	glTexImage2D(GL_TEXTURE_2D, 0, GL_SRGB8, img.size.x, img.size.y, 0, GL_RGB, GL_UNSIGNED_BYTE, img.pixels);
+	glTexImage2D(targ, 0, GL_SRGB8, img.size.x, img.size.y, 0, GL_RGB, GL_UNSIGNED_BYTE, img.pixels);
 }
 template<> inline void _upload_texture2D<srgba8> (GLenum targ, Image<srgba8> const& img) {
-	glTexImage2D(GL_TEXTURE_2D, 0, GL_SRGB8_ALPHA8, img.size.x, img.size.y, 0, GL_RGBA, GL_UNSIGNED_BYTE, img.pixels);
+	glTexImage2D(targ, 0, GL_SRGB8_ALPHA8, img.size.x, img.size.y, 0, GL_RGBA, GL_UNSIGNED_BYTE, img.pixels);
 }
 template<> inline void _upload_texture2D<float> (GLenum targ, Image<float> const& img) {
-	glTexImage2D(GL_TEXTURE_2D, 0, GL_R32F, img.size.x, img.size.y, 0, GL_RED, GL_FLOAT, img.pixels);
+	glTexImage2D(targ, 0, GL_R32F, img.size.x, img.size.y, 0, GL_RED, GL_FLOAT, img.pixels);
 }
 template<> inline void _upload_texture2D<uint16_t> (GLenum targ, Image<uint16_t> const& img) {
-	glTexImage2D(GL_TEXTURE_2D, 0, GL_R16, img.size.x, img.size.y, 0, GL_RED, GL_UNSIGNED_SHORT, img.pixels);
+	glTexImage2D(targ, 0, GL_R16, img.size.x, img.size.y, 0, GL_RED, GL_UNSIGNED_SHORT, img.pixels);
 }
 
 template <typename T>
@@ -1300,6 +1300,34 @@ inline bool upload_texture2D (GLuint tex, const char* filepath, bool mips=true) 
 template <typename T>
 inline bool upload_texture2D (Texture2D& tex, const char* filepath, bool mips=true) {
 	return upload_texture2D<T>((GLuint)tex, filepath, mips);
+}
+
+template <typename T>
+inline bool upload_textureCube (TextureCubemap& tex, const char* filepath_format, bool mips=true) {
+	glBindTexture(GL_TEXTURE_CUBE_MAP, tex);
+
+	static constexpr char const* names[] = {"px","nx","py","ny","pz","nz"};
+	for (int i=0; i<6; ++i) {
+		auto filepath = prints(filepath_format, names[i]);
+
+		Image<T> img;
+		if (!Image<T>::load_from_file(filepath.c_str(), &img)) {
+			fprintf(stderr, "Error! Could not load texture \"%s\"\n", filepath.c_str());
+			return false;
+		}
+
+		_upload_texture2D(GL_TEXTURE_CUBE_MAP_POSITIVE_X+i, img);
+	}
+	
+	if (mips) {
+		glGenerateMipmap(GL_TEXTURE_CUBE_MAP);
+	} else {
+		glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_BASE_LEVEL, 0);
+		glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_MAX_LEVEL, 0);
+	}
+
+	glBindTexture(GL_TEXTURE_CUBE_MAP, 0);
+	return true;
 }
 
 template <typename T>

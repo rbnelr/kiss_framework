@@ -204,6 +204,7 @@ struct DebugDraw {
 	void wire_cube (float3 const& pos, float3 const& size, lrgba const& col);
 	void wire_circle (float3 const& pos, float r, lrgba const& col, int angres=32);
 	void wire_sphere (float3 const& pos, float r, lrgba const& col, int angres=32, int wires=16);
+	void wire_sphere (float3x4 const& mat, float r, lrgba const& col, int angres=32, int wires=16);
 	void wire_cone (float3 const& pos, float ang, float length, float3x3 const& rot, lrgba const& col, int circres=16, int wires=8);
 	//void wire_frustrum (Camera_View const& view, lrgba const& col);
 
