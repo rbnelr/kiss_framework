@@ -208,6 +208,8 @@ struct TextRenderer {
 	// see prepare_text() and align_text() for details
 	int draw_text (std::string_view text, float font_size, float4 const& color,
 			float2 const& base_pos, float2 const& align=0, float2 const& align_padding=0) {
+		if (base_pos.x < -99999.0f)
+			return 0; // text can be behind camera
 		//ZoneScoped;
 		auto ptext = prepare_text(text, font_size, color);
 		align_text(ptext, base_pos, align, align_padding);
@@ -218,6 +220,9 @@ struct TextRenderer {
 	static float2 map_text (float3 const& pos, View3D const& view) {
 		float4 clip = view.world2clip * float4(pos, 1);
 		float4 ndc = clip / clip.w;
+
+		if (ndc.z < 0.0f)
+			return float2(-INF); // text behind camera, return dummy position
 
 		float4 screen = (ndc * 0.5f + 0.5f) * float4(view.viewport_size, 1,1);
 

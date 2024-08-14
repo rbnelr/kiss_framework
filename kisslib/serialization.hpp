@@ -160,8 +160,10 @@ namespace nlohmann {
 			j = { val.x, val.y };
 		}
 		static void from_json(const ordered_json& j, type& val) {
-			j.at(0).get_to(val.x);
-			j.at(1).get_to(val.y);
+			if (!j.is_array()) return;
+			size_t len = j.size();
+			if (len >= 1) j.at(0).get_to(val.x);
+			if (len >= 2) j.at(1).get_to(val.y);
 		}
 	};
 
@@ -171,9 +173,11 @@ namespace nlohmann {
 			j = { val.x, val.y };
 		}
 		static void from_json(const ordered_json& j, type& val) {
-			j.at(0).get_to(val.x);
-			j.at(1).get_to(val.y);
-			j.at(2).get_to(val.z);
+			if (!j.is_array()) return;
+			size_t len = j.size();
+			if (len >= 1) j.at(0).get_to(val.x);
+			if (len >= 2) j.at(1).get_to(val.y);
+			if (len >= 3) j.at(2).get_to(val.z);
 		}
 	};
 
@@ -183,10 +187,12 @@ namespace nlohmann {
 			j = { val.x, val.y };
 		}
 		static void from_json(const ordered_json& j, type& val) {
-			j.at(0).get_to(val.x);
-			j.at(1).get_to(val.y);
-			j.at(2).get_to(val.z);
-			j.at(3).get_to(val.w);
+			if (!j.is_array()) return;
+			size_t len = j.size();
+			if (len >= 1) j.at(0).get_to(val.x);
+			if (len >= 2) j.at(1).get_to(val.y);
+			if (len >= 3) j.at(2).get_to(val.z);
+			if (len >= 3) j.at(3).get_to(val.w);
 		}
 	};
 
@@ -196,8 +202,10 @@ namespace nlohmann {
 			j = { val.x, val.y };
 		}
 		static void from_json(const ordered_json& j, type& val) {
-			j.at(0).get_to(val.x);
-			j.at(1).get_to(val.y);
+			if (!j.is_array()) return;
+			size_t len = j.size();
+			if (len >= 1) j.at(0).get_to(val.x);
+			if (len >= 2) j.at(1).get_to(val.y);
 		}
 	};
 
@@ -207,9 +215,11 @@ namespace nlohmann {
 			j = { val.x, val.y, val.z };
 		}
 		static void from_json(const ordered_json& j, type& val) {
-			j.at(0).get_to(val.x);
-			j.at(1).get_to(val.y);
-			j.at(2).get_to(val.z);
+			if (!j.is_array()) return;
+			size_t len = j.size();
+			if (len >= 1) j.at(0).get_to(val.x);
+			if (len >= 2) j.at(1).get_to(val.y);
+			if (len >= 3) j.at(2).get_to(val.z);
 		}
 	};
 
@@ -219,10 +229,12 @@ namespace nlohmann {
 			j = { val.x, val.y, val.z, val.w };
 		}
 		static void from_json(const ordered_json& j, type& val) {
-			j.at(0).get_to(val.x);
-			j.at(1).get_to(val.y);
-			j.at(2).get_to(val.z);
-			j.at(3).get_to(val.w);
+			if (!j.is_array()) return;
+			size_t len = j.size();
+			if (len >= 1) j.at(0).get_to(val.x);
+			if (len >= 2) j.at(1).get_to(val.y);
+			if (len >= 3) j.at(2).get_to(val.z);
+			if (len >= 3) j.at(3).get_to(val.w);
 		}
 	};
 
@@ -232,9 +244,11 @@ namespace nlohmann {
 			j = { val.x, val.y, val.z };
 		}
 		static void from_json(const ordered_json& j, type& val) {
-			j.at(0).get_to(val.x);
-			j.at(1).get_to(val.y);
-			j.at(2).get_to(val.z);
+			if (!j.is_array()) return;
+			size_t len = j.size();
+			if (len >= 1) j.at(0).get_to(val.x);
+			if (len >= 2) j.at(1).get_to(val.y);
+			if (len >= 3) j.at(2).get_to(val.z);
 		}
 	};
 	template <>	struct adl_serializer<srgba8> {
@@ -243,10 +257,12 @@ namespace nlohmann {
 			j = { val.x, val.y, val.z, val.w };
 		}
 		static void from_json(const ordered_json& j, type& val) {
-			j.at(0).get_to(val.x);
-			j.at(1).get_to(val.y);
-			j.at(2).get_to(val.z);
-			j.at(3).get_to(val.w);
+			if (!j.is_array()) return;
+			size_t len = j.size();
+			if (len >= 1) j.at(0).get_to(val.x);
+			if (len >= 2) j.at(1).get_to(val.y);
+			if (len >= 3) j.at(2).get_to(val.z);
+			if (len >= 3) j.at(3).get_to(val.w);
 		}
 	};
 }
