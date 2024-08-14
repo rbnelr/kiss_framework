@@ -555,13 +555,15 @@ public:
 	operator GLuint () const { return fbo; }
 };
 
-inline Fbo make_and_bind_temp_fbo (GLuint textarget, GLuint tex, int mip) {
+inline Fbo make_and_bind_temp_fbo (GLuint textarget, GLuint tex, int mip, GLenum attach_type=GL_COLOR_ATTACHMENT0) {
 	auto fbo = Fbo("tmp_fbo");
 	glBindFramebuffer(GL_FRAMEBUFFER, fbo);
 
-	glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, textarget, tex, mip);
-	GLuint bufs[] = { GL_COLOR_ATTACHMENT0 };
-	glDrawBuffers(ARRLEN(bufs), bufs);
+	glFramebufferTexture2D(GL_FRAMEBUFFER, attach_type, textarget, tex, mip);
+	if (attach_type == GL_COLOR_ATTACHMENT0) {
+		GLuint bufs[] = { attach_type };
+		glDrawBuffers(ARRLEN(bufs), bufs);
+	}
 		
 	GLenum status = glCheckFramebufferStatus(GL_FRAMEBUFFER);
 	if (status != GL_FRAMEBUFFER_COMPLETE) {
@@ -570,15 +572,17 @@ inline Fbo make_and_bind_temp_fbo (GLuint textarget, GLuint tex, int mip) {
 	}
 	return fbo;
 }
-inline Fbo make_and_bind_temp_fbo_layered (GLuint tex, int mip) {
+inline Fbo make_and_bind_temp_fbo_layered (GLuint tex, int mip, GLenum attach_type=GL_COLOR_ATTACHMENT0) {
 	auto fbo = Fbo("tmp_fbo");
 	glBindFramebuffer(GL_FRAMEBUFFER, fbo);
 
 	// attaches entire eg. cubemap as "layered image" which using a geometry shader, can be draw to in a single drawcall
 	// NOTE: glFramebufferTextureLayer seems to attach a particular layer of the cubemap as single image, just like glFramebufferTexture2D(.., GL_TEXTURE_CUBE_MAP_POSITIVE_X, ...)
-	glFramebufferTexture(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, tex, mip);
-	GLuint bufs[] = { GL_COLOR_ATTACHMENT0 };
-	glDrawBuffers(ARRLEN(bufs), bufs);
+	glFramebufferTexture(GL_FRAMEBUFFER, attach_type, tex, mip);
+	if (attach_type == GL_COLOR_ATTACHMENT0) {
+		GLuint bufs[] = { attach_type };
+		glDrawBuffers(ARRLEN(bufs), bufs);
+	}
 		
 	GLenum status = glCheckFramebufferStatus(GL_FRAMEBUFFER);
 	if (status != GL_FRAMEBUFFER_COMPLETE) {
@@ -588,26 +592,55 @@ inline Fbo make_and_bind_temp_fbo_layered (GLuint tex, int mip) {
 	return fbo;
 }
 
-/*
+#if 0
 // WARNING: This is ungodly slow for whatever reason, like 1.5ms to copy some cubemap mipmaps
 // while generating them using 512 samples per texel with math and texture access takes ~2ms
-inline void copy_texels (GLenum textarget,
-		GLuint src, GLint src_mip, int2 srcXY0, int2 srcXY1,
-		GLuint dst, GLint dst_mip, int2 dstXY0, int2 dstXY1,
+
+// Edit: Copying gbuffer.depth actually runs at like 0.13ms (800GB/s), so _not_ slow
+inline void copy_texels_SLOW (GLenum textarget,
+		GLuint tex2d_src, GLint src_mip, int2 srcXY,
+		GLuint tex2d_dst, GLint dst_mip, int2 dstXY, int2 size,
 		GLbitfield mask=GL_COLOR_BUFFER_BIT, GLenum filter=GL_NEAREST) {
-	auto src_fbo = make_and_bind_temp_fbo(textarget, src, src_mip);
-	auto dst_fbo = make_and_bind_temp_fbo(textarget, dst, dst_mip);
+#if 0
+	GLenum attach_type;
+	if      (mask == GL_COLOR_BUFFER_BIT) attach_type = GL_COLOR_ATTACHMENT0;
+	else if (mask == GL_DEPTH_BUFFER_BIT) attach_type = GL_DEPTH_ATTACHMENT;
+	else assert(false);
+
+	auto src_fbo = make_and_bind_temp_fbo(textarget, tex2d_src, src_mip, attach_type);
+	auto dst_fbo = make_and_bind_temp_fbo(textarget, tex2d_dst, dst_mip, attach_type);
 	glBindFramebuffer(GL_READ_FRAMEBUFFER, src_fbo);
 	glBindFramebuffer(GL_DRAW_FRAMEBUFFER, dst_fbo);
 
 	glBlitFramebuffer(
-		srcXY0.x,srcXY0.y, srcXY1.x,srcXY1.y,
-		dstXY0.x,dstXY0.y, dstXY1.x,dstXY1.y,
+		srcXY.x,srcXY.y, srcXY.x+size.x,srcXY.y+size.y,
+		dstXY.x,dstXY.y, dstXY.x+size.x,dstXY.y+size.y,
 		mask, filter);
 
 	glBindFramebuffer(GL_READ_FRAMEBUFFER, 0);
 	glBindFramebuffer(GL_DRAW_FRAMEBUFFER, 0);
-}*/
+#elif 0
+	glBindTexture(GL_TEXTURE_2D, tex2d_dst);
+
+	// pulls from current FBO?
+	glCopyTexSubImage2D(GL_TEXTURE_2D, 0, dstXY.x,dstXY.y, srcXY.x,srcXY.y, size.x,size.y);
+
+	glBindTexture(GL_TEXTURE_2D, 0);
+#else
+	glCopyImageSubData(tex2d_src,GL_TEXTURE_2D,0, srcXY.x,srcXY.y,0,
+	                   tex2d_dst,GL_TEXTURE_2D,0, dstXY.x,dstXY.y,0,
+	                   size.x,size.y,1);
+#endif
+}
+#endif
+
+// GLuint, so it works for Texture2D and Render_Texture (which is a Texture2D if not using msaa?)
+// untested for anything elese
+inline void copy_texels2D (GLuint src, int srcMip, int2 srcPos, GLuint dst, int dstMip, int2 dstPos, int2 dimensions, GLenum textype=GL_TEXTURE_2D) {
+	glCopyImageSubData(src,textype,srcMip, srcPos.x,srcPos.y,0,
+	                   dst,textype,dstMip, dstPos.x,dstPos.y,0,
+	                   dimensions.x,dimensions.y,1);
+}
 
 inline void dispatch_compute (int3 count, int3 workgroup_size) {
 	int3 dispatch_size = (count + workgroup_size-1) / workgroup_size; // round up
@@ -1046,7 +1079,7 @@ namespace state {
 
 		// set opengl drawing state to a set of values, where only changes are applied
 		// no overrides to not break fullscreen quads etc.
-		void set_no_override (PipelineState const& s) {
+		void set_no_override (PipelineState const& new_state) {
 		#if OGL_STATE_ASSERT
 			{
 				assert(state.depth_test == !!glIsEnabled(GL_DEPTH_TEST));
@@ -1086,42 +1119,42 @@ namespace state {
 			}
 		#endif
 
-			if (state.depth_test != s.depth_test)
-				glSetEnable(GL_DEPTH_TEST, s.depth_test);
-			if (state.depth_func != s.depth_func) {
+			if (state.depth_test != new_state.depth_test)
+				glSetEnable(GL_DEPTH_TEST, new_state.depth_test);
+			if (state.depth_func != new_state.depth_func) {
 	#if OGL_USE_REVERSE_DEPTH
-				if (reverse_depth) glDepthFunc(map_depth_func_reverse(state.depth_func));
-				else               glDepthFunc(map_depth_func(state.depth_func));
+				if (reverse_depth) glDepthFunc(map_depth_func_reverse(new_state.depth_func));
+				else               glDepthFunc(map_depth_func(new_state.depth_func));
 	#else
-				glDepthFunc(map_depth_func(state.depth_func));
+				glDepthFunc(map_depth_func(s.depth_func));
 	#endif
 			}
-			if (state.depth_write != s.depth_write)
-				glDepthMask(s.depth_write ? GL_TRUE : GL_FALSE);
+			if (state.depth_write != new_state.depth_write)
+				glDepthMask(new_state.depth_write ? GL_TRUE : GL_FALSE);
 
-			if (state.depth_clamp != s.depth_clamp)
-				glSetEnable(GL_DEPTH_CLAMP, s.depth_clamp);
+			if (state.depth_clamp != new_state.depth_clamp)
+				glSetEnable(GL_DEPTH_CLAMP, new_state.depth_clamp);
 
-			if (state.scissor_test != s.scissor_test)
-				glSetEnable(GL_SCISSOR_TEST, s.scissor_test);
+			if (state.scissor_test != new_state.scissor_test)
+				glSetEnable(GL_SCISSOR_TEST, new_state.scissor_test);
 
-			if (state.cull_face != s.cull_face)
-				glSetEnable(GL_CULL_FACE, s.cull_face);
-			if (state.front_face != s.front_face)
-				glCullFace(s.front_face == CULL_FRONT ? GL_FRONT : GL_BACK);
+			if (state.cull_face != new_state.cull_face)
+				glSetEnable(GL_CULL_FACE, new_state.cull_face);
+			if (state.front_face != new_state.front_face)
+				glCullFace(new_state.front_face == CULL_FRONT ? GL_FRONT : GL_BACK);
 
 			// blending
-			if (state.blend_enable != s.blend_enable)
-				glSetEnable(GL_BLEND, s.blend_enable);
-			if (state.blend_func.equation != s.blend_func.equation)
-				glBlendEquation(s.blend_func.equation);
-			if (state.blend_func.sfactor != s.blend_func.sfactor || state.blend_func.dfactor != s.blend_func.dfactor)
-				glBlendFunc(s.blend_func.sfactor, s.blend_func.dfactor);
+			if (state.blend_enable != new_state.blend_enable)
+				glSetEnable(GL_BLEND, new_state.blend_enable);
+			if (state.blend_func.equation != new_state.blend_func.equation)
+				glBlendEquation(new_state.blend_func.equation);
+			if (state.blend_func.sfactor != new_state.blend_func.sfactor || state.blend_func.dfactor != new_state.blend_func.dfactor)
+				glBlendFunc(new_state.blend_func.sfactor, new_state.blend_func.dfactor);
 
-			if (state.poly_mode != s.poly_mode)
-				glPolygonMode(GL_FRONT_AND_BACK, s.poly_mode == POLY_FILL ? GL_FILL : GL_LINE);
+			if (state.poly_mode != new_state.poly_mode)
+				glPolygonMode(GL_FRONT_AND_BACK, new_state.poly_mode == POLY_FILL ? GL_FILL : GL_LINE);
 
-			state = s;
+			state = new_state;
 		}
 
 		// set opengl drawing state to a set of values, where only changes are applied
