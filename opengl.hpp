@@ -1318,6 +1318,23 @@ inline void upload_image2D (GLuint tex, Image<T> const& img, bool mips=true) {
 
 	glBindTexture(GL_TEXTURE_2D, 0);
 }
+template <typename T>
+inline void upload_imageCube (GLuint tex, const Image<T> imgs[], bool mips=true) {
+	glBindTexture(GL_TEXTURE_CUBE_MAP, tex);
+	
+	for (int i=0; i<6; ++i) {
+		_upload_texture2D(GL_TEXTURE_CUBE_MAP_POSITIVE_X+i, imgs[i]);
+	}
+	
+	if (mips) {
+		glGenerateMipmap(GL_TEXTURE_CUBE_MAP);
+	} else {
+		glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_BASE_LEVEL, 0);
+		glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_MAX_LEVEL, 0);
+	}
+
+	glBindTexture(GL_TEXTURE_CUBE_MAP, 0);
+}
 
 template <typename T>
 inline bool upload_texture2D (GLuint tex, const char* filepath, bool mips=true) {
@@ -1337,29 +1354,19 @@ inline bool upload_texture2D (Texture2D& tex, const char* filepath, bool mips=tr
 
 template <typename T>
 inline bool upload_textureCube (TextureCubemap& tex, const char* filepath_format, bool mips=true) {
-	glBindTexture(GL_TEXTURE_CUBE_MAP, tex);
-
-	static constexpr char const* names[] = {"px","nx","py","ny","pz","nz"};
+	static constexpr char const* CUBEMAP_FACE_FILES_NAMES[] = {"px","nx","py","ny","pz","nz"};
+	
+	Image<T> imgs[6];
 	for (int i=0; i<6; ++i) {
-		auto filepath = prints(filepath_format, names[i]);
+		auto filepath = prints(filepath_format, CUBEMAP_FACE_FILES_NAMES[i]);
 
-		Image<T> img;
-		if (!Image<T>::load_from_file(filepath.c_str(), &img)) {
+		if (!Image<T>::load_from_file(filepath.c_str(), &imgs[i])) {
 			fprintf(stderr, "Error! Could not load texture \"%s\"\n", filepath.c_str());
 			return false;
 		}
-
-		_upload_texture2D(GL_TEXTURE_CUBE_MAP_POSITIVE_X+i, img);
 	}
 	
-	if (mips) {
-		glGenerateMipmap(GL_TEXTURE_CUBE_MAP);
-	} else {
-		glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_BASE_LEVEL, 0);
-		glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_MAX_LEVEL, 0);
-	}
-
-	glBindTexture(GL_TEXTURE_CUBE_MAP, 0);
+	upload_imageCube(tex, imgs, mips);
 	return true;
 }
 

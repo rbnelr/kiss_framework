@@ -114,14 +114,18 @@ namespace kiss {
 		return std::string_view(filepath.data(), p+1 - filepath.data()); // include slash in path
 	}
 
-	std::string_view get_ext (std::string_view filepath, std::string_view* out_filename) {
+	std::string_view get_ext (std::string_view filepath, std::string_view* out_filename, bool include_dot_in_ext) {
 		char const* end = filepath.data() + filepath.size();
 
 		char const* p = my_memrchr(filepath.data(), '.', filepath.size());
 		if (!p)
 			p = filepath.data(); // no splitchar found => left substr is empty
 
-		if (out_filename) *out_filename = std::string_view(filepath.data(), p - filepath.data()); // exclude '.' from filename
-		return std::string_view(p+1, end - (p+1)); // exclude '.' from extension
+		if (out_filename)
+			*out_filename = std::string_view(filepath.data(), p - filepath.data()); // exclude '.' from filename
+		
+		if (!include_dot_in_ext)
+			p++; // exclude '.' from extension
+		return std::string_view(p, end - p);
 	}
 }

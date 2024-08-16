@@ -23,12 +23,70 @@ namespace kiss {
 	void to_upper_inplace (std::string& str);
 	std::string to_upper (std::string_view str);
 
-	inline std::string operator+ (std::string_view const& l, std::string_view const& r) {
+	// should be slightly more efficient than trying to do this in any other way, since multiple string 
+	inline std::string concat (std::string_view const& a, std::string_view const& b) {
 		std::string s;
-		s.reserve(l.size() + r.size()); // null terminator is implicit see https://stackoverflow.com/questions/30111288/stdstringreserve-and-end-of-string-0
-		s.insert(0, l);
-		s.insert(l.size(), r);
+		s.reserve(a.size() + b.size()); // null terminator is implicit see https://stackoverflow.com/questions/30111288/stdstringreserve-and-end-of-string-0
+		s.insert(0, a);
+		s.insert(a.size(), b);
 		return s;
+	}
+	inline std::string concat (std::string_view const& a, std::string_view const& b, std::string_view const& c) {
+		std::string s;
+		s.reserve(a.size() + b.size() + c.size());
+		size_t offs = 0;
+		s.insert(offs, a); offs += a.size();
+		s.insert(offs, b); offs += b.size();
+		s.insert(offs, c);
+		return s;
+	}
+	inline std::string concat (std::string_view const& a, std::string_view const& b, std::string_view const& c, std::string_view const& d) {
+		std::string s;
+		s.reserve(a.size() + b.size() + c.size() + d.size());
+		size_t offs = 0;
+		s.insert(offs, a); offs += a.size();
+		s.insert(offs, b); offs += b.size();
+		s.insert(offs, c); offs += c.size();
+		s.insert(offs, d);
+		return s;
+	}
+	inline std::string operator+ (std::string_view const& l, std::string_view const& r) {
+		return concat(l, r);
+	}
+
+	inline std::vector<std::string_view> split (std::string_view const& str, char seperator) {
+		std::vector<std::string_view> results;
+		const char* cur = str.data();
+		const char* end = str.data()+str.size();
+		while (cur != end) {
+			auto pos = (const char*)memchr(cur, seperator, end-cur);
+			if (!pos) break;
+			results.push_back(std::string_view(cur, pos-cur));
+			cur = pos+1; // always exlucde seperator
+		}
+		results.push_back(std::string_view(cur, end-cur));
+		return results;
+	}
+	// returns actual number of results
+	inline int split (std::string_view const& str, char seperator, std::string_view* results, int max_results=0) {
+		int count = 0;
+
+		const char* cur = str.data();
+		const char* end = str.data()+str.size();
+		while (cur != end) {
+			auto pos = (const char*)memchr(cur, seperator, end-cur);
+			if (!pos) break;
+
+			if (count < max_results)
+				results[count++] = std::string_view(cur, pos-cur);
+
+			cur = pos+1; // always exlucde seperator
+		}
+
+		if (count < max_results)
+			results[count++] = std::string_view(cur, end-cur);
+
+		return count;
 	}
 
 	template <typename FUNC>

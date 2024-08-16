@@ -42,5 +42,5 @@ namespace kiss {
 	// "world.txt"       => ext: "txt"   out_filename: "world"
 	// "world"           => ext: ""      out_filename: "world"
 	// ".txt"            => ext: "txt"   out_filename: ""
-	std::string_view get_ext (std::string_view filepath, std::string_view* out_filename=nullptr);
+	std::string_view get_ext (std::string_view filepath, std::string_view* out_filename=nullptr, bool include_dot_in_ext=false);
 }
