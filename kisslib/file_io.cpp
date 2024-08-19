@@ -5,6 +5,11 @@
 #include "stdio.h"
 #include "assert.h"
 
+#ifdef _WIN32
+#include "windows.h" // file dialogs
+#include "shlwapi.h"
+#endif
+
 namespace kiss {
 
 	uint64_t get_file_size (FILE* f) {
@@ -127,5 +132,54 @@ namespace kiss {
 		if (!include_dot_in_ext)
 			p++; // exclude '.' from extension
 		return std::string_view(p, end - p);
+	}
+
+	std::string try_make_path_relative (const char* relative_to, const char* path) {
+		char relative_path[MAX_PATH];
+		if (PathRelativePathToA(relative_path, relative_to, FILE_ATTRIBUTE_DIRECTORY, path, FILE_ATTRIBUTE_NORMAL)) {
+			std::string_view str(relative_path);
+
+			// remove any leading ".\"
+			if (str.rfind(".\\", 0) == 0) {
+				str = str.substr(2);
+			}
+
+			// Do not allow backwards pathds
+			if (str.find("..") == std::string::npos) {
+				return std::string(str);
+			}
+		}
+		// otherwise return old absolute path
+		return path;
+	}
+
+	// This barely even works
+	// Doesn't open on the application dir, desktop or anywhere useful
+	// Can't seem to manage to select the start dir either
+	// returns absolute paths when I need them to be relative if are relative to application dir
+	bool file_open_dialog (std::string* out_filename, const char* initial_dir) {
+		char filepath[MAX_PATH] = { 0 };
+		char current_dir[MAX_PATH] = { 0 };
+		
+		if (!GetCurrentDirectoryA(MAX_PATH, current_dir))
+			current_dir[0] = '\0'; // just to make sure
+
+		if (initial_dir[0] == '\0')
+			initial_dir = current_dir;
+
+		OPENFILENAMEA ofn = { sizeof(OPENFILENAMEA) };
+		ofn.hwndOwner = GetActiveWindow();
+		ofn.lpstrFile = filepath;
+		ofn.nMaxFile = sizeof(filepath);
+		ofn.lpstrInitialDir = initial_dir;
+		
+		ofn.Flags = OFN_PATHMUSTEXIST | OFN_FILEMUSTEXIST | OFN_NOCHANGEDIR;
+		auto res = GetOpenFileNameA(&ofn);
+		if (!res) {
+			return false;
+		}
+
+		*out_filename = try_make_path_relative(current_dir, filepath);
+		return true;
 	}
 }

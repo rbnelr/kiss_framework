@@ -1,6 +1,9 @@
 #pragma once
 #include "kissmath.hpp"
 
+struct Line {
+	float3 a, b;
+};
 struct Ray {
 	float3 pos;
 	float3 dir; // normalized
@@ -65,6 +68,30 @@ struct AABB {
 
 using AABB3 = AABB<float3>;
 using AABB2 = AABB<float2>;
+
+struct RectInt {
+	int2 lo=INT_MAX, hi=INT_MIN;
+	
+	static const RectInt EMPTY;
+	static const RectInt INF;
+
+	bool empty () const {
+		return lo.x > hi.x || lo.y > hi.y;
+	}
+	
+	static RectInt add (RectInt const& l, RectInt const& r) {
+		RectInt res;
+		res.lo = ::min(l.lo, r.lo);
+		res.hi = ::max(l.hi, r.hi);
+		assert(all(res.lo <= res.hi));
+		return res;
+	}
+	void add (RectInt const& r) {
+		*this = add(*this, r);
+	}
+};
+inline constexpr RectInt RectInt::EMPTY = {};
+inline constexpr RectInt RectInt::INF = {INT_MIN, INT_MAX};
 
 struct View_Frustrum {
 	// The view frustrum planes in world space
