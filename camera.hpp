@@ -36,7 +36,7 @@ struct View3D {
 	bool cursor_ray (Input& I, float3* out_ray_pos=nullptr, float3* out_ray_dir=nullptr) const {
 		if (!I.cursor_enabled) return false;
 
-		float2 px_center = I.cursor_pos_bottom_up + 0.5f;
+		float2 px_center = I.cursor_pos_bottom_up() + 0.5f;
 
 		float2 uv = px_center * inv_viewport_size - 0.5f;
 
@@ -373,7 +373,7 @@ struct Camera2D {
 		float2 delta;
 		if (binds.drag >= 0 && I.buttons[binds.drag].is_down) {
 			// mouse drag move
-			float2 cursor_px = I.cursor_pos_bottom_up + 0.5f; // ~[0, window_size]
+			float2 cursor_px = I.cursor_pos_bottom_up() + 0.5f; // ~[0, window_size]
 			float2 cursor = cursor_px / (float2)I.window_size - 0.5f; // [-0.5, +0.5]
 			float2 cursor_world = (mat_rot * (size * cursor)) + (float2)pos; // cursor in world space with current cam pos
 

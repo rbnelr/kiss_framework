@@ -142,6 +142,9 @@ inline T deserialize (char const* filename) {
 
 
 namespace nlohmann {
+	// It's kinda unsafe to allocate pointers through deserialization, since we don't know if the code might not already have raw copies of this poiner somewhere
+	// (Think unique pointer for objects, raw pointers to store selected object), some people might argue to use shared_ptr/weak_ptr in that case but I disagree
+	/*
 	template<typename T>
 	struct adl_serializer<std::unique_ptr<T>> {
 		using type = std::unique_ptr<T>;
@@ -153,7 +156,21 @@ namespace nlohmann {
 			j.get_to(*val);
 		}
 	};
-	
+	*/
+	template<typename T>
+	struct adl_serializer<std::unique_ptr<T>> {
+		using type = std::unique_ptr<T>;
+		static void to_json(ordered_json& j, const type& val) {
+			j = *val; // This is safe
+		}
+		static void from_json(const ordered_json& j, type& val) {
+			// Just don't deserialize if ptr is null, this is safe, but might not be what you want
+			// Think std::vector<std::unique_ptr<T>>, where depending on what's in the file, you might want the vector to be filled with new ptrs
+			// Could override vectors of uptrs specifically, or just manually deserialize?
+			if (val) j.get_to(*val);
+		}
+	};
+
 	template <>	struct adl_serializer<int2> {
 		using type = int2;
 		static void to_json(ordered_json& j, const type& val) {

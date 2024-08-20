@@ -2,7 +2,7 @@
 #include "kisslib/kissmath.hpp"
 #include "dear_imgui.hpp"
 
-struct Engine;
+class Engine;
 
 struct ButtonState {
 	bool is_down   : 1; // button is down
@@ -193,7 +193,10 @@ struct Input {
 
 	int2 window_size;
 	float2 cursor_pos; // in pixels, float because glfw retuns doubles
-	float2 cursor_pos_bottom_up; // in pixels, float because glfw retuns doubles
+	
+	float2 cursor_pos_bottom_up () const { // in pixels, float because glfw retuns doubles
+		return float2(cursor_pos.x, (float)window_size.y - 1.0f - cursor_pos.y);
+	}
 
 	float2 mouse_delta;
 	int mouse_wheel_delta; // in "clicks"

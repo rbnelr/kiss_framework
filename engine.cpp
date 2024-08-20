@@ -489,9 +489,6 @@ void glfw_sample_non_callback_input (Engine& eng) {
 
 	eng.input.cursor_pos = float2((float)x, (float)y);
 
-	eng.input.cursor_pos_bottom_up = eng.input.cursor_pos;
-	eng.input.cursor_pos_bottom_up.y = eng.input.window_size.y - 1 - eng.input.cursor_pos_bottom_up.y;
-
 	//logf("cursor_pos: %f %f\n", input.cursor_pos.x, input.cursor_pos.y);
 }
 
