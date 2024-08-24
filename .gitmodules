@@ -8,3 +8,6 @@
 [submodule "kisslib/nlohmann_json"]
 	path = kisslib/nlohmann_json
 	url = https://github.com/nlohmann/json.git
+[submodule "dds_image"]
+	path = dds_image
+	url = https://github.com/spnda/dds_image
