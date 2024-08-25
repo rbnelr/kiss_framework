@@ -133,6 +133,9 @@ bool gl_is_nvidia () {
 }
 
 namespace shader {
+	// Discord comment: On AMD you need to explicitly enable GL_GOOGLE_cpp_style_line_directive in the shader
+	// and on NV it just works as long as GL_ARB_shading_language_include is available
+	// TODO: this can be done more intelligently
 	void line_marker (std::string* result, int line, char const* filename, int fileidx) {
 		if (gl_is_nvidia())
 			prints(result, "#line %d \"%s\"\n", line, filename); // only works on nvidia
@@ -370,6 +373,7 @@ namespace shader {
 	////
 	bool compile_shader (Shader& shad, const char* name, const char* dbgname,
 			std::vector<Stage> const& stages, std::vector<MacroDefinition> const& macros, bool wireframe) {
+		ZoneScoped;
 		shad.src_files.clear();
 		shad.uniforms.clear();
 
@@ -384,6 +388,9 @@ namespace shader {
 			return false;
 		}
 
+		//auto lines = (int)std::count(source.begin(), source.end(), '\n');
+		//printf("shader lines: %d\n", lines);
+
 		// Compile shader stages
 
 		GLuint prog = glCreateProgram();
@@ -394,6 +401,7 @@ namespace shader {
 		bool error = false;
 	
 		for (auto stage : stages) {
+			ZoneScopedN("create compile stage");
 
 			GLuint shad = glCreateShader(SHADER_STAGE_GLENUM[stage]);
 			glAttachShader(prog, shad);
@@ -413,6 +421,7 @@ namespace shader {
 		}
 
 		if (!error) { // skip linking if stage has error
+			ZoneScopedN("glLinkProgram");
 			glLinkProgram(prog);
 		
 			error = check_program(prog, name);

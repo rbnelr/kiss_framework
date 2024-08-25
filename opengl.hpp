@@ -430,6 +430,21 @@ public:
 
 	operator GLuint () const { return sampler; }
 };
+class TextureView {
+	GLuint tex = 0;
+public:
+	MOVE_ONLY_CLASS_MEMBER(TextureView, tex);
+
+	TextureView () {} // not allocated
+	TextureView (std::string_view label) { // allocate
+		glGenTextures(1, &tex);
+	}
+	~TextureView () {
+		if (tex) glDeleteTextures(1, &tex);
+	}
+
+	operator GLuint () const { return tex; }
+};
 class Texture1D {
 	GLuint tex = 0;
 public:
@@ -556,6 +571,24 @@ public:
 
 	operator GLuint () const { return fbo; }
 };
+
+inline void setup_single_attach_fbo (Fbo& fbo, GLuint textarget, GLuint tex, int mip, GLenum attach_type=GL_COLOR_ATTACHMENT0) {
+	glBindFramebuffer(GL_FRAMEBUFFER, fbo);
+
+	glFramebufferTexture2D(GL_FRAMEBUFFER, attach_type, textarget, tex, mip);
+	if (attach_type == GL_COLOR_ATTACHMENT0) {
+		GLuint bufs[] = { attach_type };
+		glDrawBuffers(ARRLEN(bufs), bufs);
+	}
+		
+	GLenum status = glCheckFramebufferStatus(GL_FRAMEBUFFER);
+	if (status != GL_FRAMEBUFFER_COMPLETE) {
+		//fprintf(stderr, "glCheckFramebufferStatus: %x\n", status);
+		assert(false);
+	}
+	
+	glBindFramebuffer(GL_FRAMEBUFFER, 0);
+}
 
 inline Fbo make_and_bind_temp_fbo (GLuint textarget, GLuint tex, int mip, GLenum attach_type=GL_COLOR_ATTACHMENT0) {
 	auto fbo = Fbo("tmp_fbo");
