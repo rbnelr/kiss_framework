@@ -698,6 +698,7 @@ int Engine::main_loop () {
 
 		if (glfwWindowShouldClose(window)) {
 			_should_close = CLOSE_PENDING;
+			imgui_enabled = true; // need to enable imgui for this to work properly
 			glfwSetWindowShouldClose(window, false); // keep state ourselves
 		}
 		
