@@ -6,7 +6,8 @@ namespace render {
 	
 struct Attribute {
 	enum Type {
-		FLT, INT, UBYTE
+		FLT, INT, UBYTE,
+		UBYTE_UNORM,
 	};
 
 	Type type; // for example type,components like Attribute::FLT,3

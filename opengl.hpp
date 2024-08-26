@@ -805,9 +805,10 @@ struct GLAttrib {
 	bool normalized;    // should int be normalized to 0.0-1.0 range? (when int data is read as float)
 };
 static constexpr inline GLAttrib ATTRIB_GL_TYPES[] = {
-	{ GL_FLOAT,         false, false },
-	{ GL_INT,           true, false },
-	{ GL_UNSIGNED_BYTE, true, false },
+	{ GL_FLOAT,         false, false }, // FLT
+	{ GL_INT,            true, false }, // INT
+	{ GL_UNSIGNED_BYTE,  true, false }, // UBYTE
+	{ GL_UNSIGNED_BYTE, false,  true }, // UBYTE_UNORM
 };
 
 template <size_t N>

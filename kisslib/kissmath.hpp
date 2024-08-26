@@ -410,6 +410,8 @@ namespace kissmath {
 		(hash.add(hash_get_bits(vals)), ...);
 		return hash.end();
 	}
+	
+	inline uint64_t hash (size_t      i, uint64_t seed=0) {      return hash_values(seed, i); };
 
 	inline uint64_t hash (int         i, uint64_t seed=0) {      return hash_values(seed, i); };
 	inline uint64_t hash (int2 const& v, uint64_t seed=0) {      return hash_values(seed, hash_get_bits(v.x, v.y)); };
