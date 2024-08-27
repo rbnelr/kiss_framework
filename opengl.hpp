@@ -2,7 +2,6 @@
 #include "common.hpp"
 #include "glad/glad.h"
 #include "tracy/TracyOpenGL.hpp"
-#include "engine/dds_image/include/dds.hpp"
 #include "camera.hpp"
 
 namespace ogl {
@@ -1379,36 +1378,6 @@ inline void upload_imageCube (GLuint tex, const Image<T> imgs[], bool gen_mips=t
 		_upload_texture2D(GL_TEXTURE_CUBE_MAP_POSITIVE_X+i, imgs[i]);
 	}
 	
-	if (gen_mips) {
-		glGenerateMipmap(GL_TEXTURE_CUBE_MAP);
-	} else {
-		glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_BASE_LEVEL, 0);
-		glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_MAX_LEVEL, 0);
-	}
-
-	glBindTexture(GL_TEXTURE_CUBE_MAP, 0);
-}
-
-inline GLenum dds_compressed_internat_format (dds::Image const& img) {
-	switch (img.format) {
-		case DXGI_FORMAT_BC1_UNORM: return GL_COMPRESSED_RGBA_S3TC_DXT1_EXT;
-	}
-	assert(false);
-	return 0;
-}
-
-inline void upload_imageCube_DDS (GLuint tex, const dds::Image imgs[], bool gen_mips=true) {
-	glBindTexture(GL_TEXTURE_CUBE_MAP, tex);
-	
-	for (int i=0; i<6; ++i) {
-		assert(imgs[i].dimension == dds::ResourceDimension::Texture2D && imgs[i].arraySize == 1);
-
-		auto format = dds_compressed_internat_format(imgs[i]);
-		auto& data = imgs[i].mipmaps[0];
-		glCompressedTexImage2D(GL_TEXTURE_CUBE_MAP_POSITIVE_X+i, 0, format,
-			(GLsizei)imgs[i].width, (GLsizei)imgs[i].height, 0, (GLsizei)data.size(), data.data());
-	}
-			
 	if (gen_mips) {
 		glGenerateMipmap(GL_TEXTURE_CUBE_MAP);
 	} else {
