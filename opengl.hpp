@@ -300,13 +300,13 @@ namespace shader {
 		// useful when compiling different variants of a single shader file using macros
 
 		Shader* compile (char const* filename, MacroDefinitions&& macros = {}, bool allow_fail=false, char const* dbgname=nullptr) {
-			return compile(filename, { VERTEX_SHADER, FRAGMENT_SHADER }, std::move(macros), allow_fail, dbgname);
+			return compile_stages(filename, { VERTEX_SHADER, FRAGMENT_SHADER }, std::move(macros), allow_fail, dbgname);
 		}
 		Shader* compile_compute (char const* filename, MacroDefinitions&& macros = {}, bool allow_fail=false, char const* dbgname=nullptr) {
-			return compile(filename, { COMPUTE_SHADER }, std::move(macros), allow_fail, dbgname);
+			return compile_stages(filename, { COMPUTE_SHADER }, std::move(macros), allow_fail, dbgname);
 		}
 
-		Shader* compile (char const* filename, std::initializer_list<Stage> stages,
+		Shader* compile_stages (char const* filename, std::initializer_list<Stage> stages,
 				MacroDefinitions&& macros, bool allow_fail=false, char const* dbgname=nullptr) {
 			ZoneScoped;
 			
