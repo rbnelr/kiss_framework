@@ -90,7 +90,7 @@ inline T deserialize (char const* filename) {
 // Terrifying macro abomination GO!
 
 #define _JSON_TO(v1) j[#v1] = t.v1;
-#define _JSON_FROM(v1) if (j.contains(#v1)) j.at(#v1).get_to(t.v1); // try get value from json
+#define _JSON_FROM(v1) nlohmann::try_get_to(j, #v1, t.v1); // try get value from json
 
 #define _JSON_EXPAND( x ) x
 #define _JSON_GET_MACRO(_0,_1,_2,_3,_4,_5,_6, _7, _8, _9, _10, _11, _12, _13, _14, _15, _16, _17, _18, _19, _20, NAME, ...) NAME
@@ -145,6 +145,15 @@ inline T deserialize (char const* filename) {
     friend SERIALIZE_FROM_JSON(Type) {}
 
 namespace nlohmann {
+	template <typename KeyT, typename T>
+	bool try_get_to (nlohmann::ordered_json const& j, KeyT const& key, T& t) {
+		if (j.contains(key)) {
+			j[key].get_to(t);
+			return true;
+		}
+		return false;
+	}
+
 	// It's kinda unsafe to allocate pointers through deserialization, since we don't know if the code might not already have raw copies of this poiner somewhere
 	// (Think unique pointer for objects, raw pointers to store selected object), some people might argue to use shared_ptr/weak_ptr in that case but I disagree
 	/*
