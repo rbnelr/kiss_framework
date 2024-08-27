@@ -868,9 +868,16 @@ bool    ImGui_ImplOpenGL3_CreateDeviceObjects()
     glGenBuffers(1, &bd->VboHandle);
     glGenBuffers(1, &bd->ElementsHandle);
 
+	// Need to bind these or OGL_DBG_LABEL freaks out
+	glBindBuffer(GL_ARRAY_BUFFER, bd->VboHandle);
+	glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, bd->ElementsHandle);
+
 	OGL_DBG_LABEL(GL_PROGRAM, bd->ShaderHandle, "imgui_shader");
 	OGL_DBG_LABEL(GL_BUFFER, bd->VboHandle, "imgui_vbo");
 	OGL_DBG_LABEL(GL_BUFFER, bd->ElementsHandle, "imgui_ebo");
+
+	glBindBuffer(GL_ARRAY_BUFFER, 0);
+	glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, 0);
 
     ImGui_ImplOpenGL3_CreateFontsTexture();
 
