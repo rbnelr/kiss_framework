@@ -1,7 +1,6 @@
 #include "common.hpp" // for PCH
 #include "opengl.hpp"
 #include "kisslib/strparse.hpp"
-
 #include "kisslib/stb_image_write.hpp"
 
 namespace ogl {
@@ -68,16 +67,14 @@ void APIENTRY debug_callback (GLenum source, GLenum type, GLuint id, GLenum seve
 		case GL_DEBUG_SEVERITY_LOW_ARB:				severity_str = "LOW";		break;
 	}
 
-	fprintf(stderr, "[OpenGL] debug message: severity:%s  src:%s  type:%s  id:%d\n%.*s\n", severity_str, src_str, type_str, id, length, message); // message is not null terminated, pass explicit length
-	fflush(stderr);
-
+	log("[OpenGL] debug message: severity:%s  src:%s  type:%s  id:%d\n%.*s\n", severity_str, src_str, type_str, id, length, message); // message is not null terminated, pass explicit length
+	
 #if RENDERER_DEBUG_OUTPUT_BREAKPOINT
 	if (severity == GL_DEBUG_SEVERITY_HIGH_ARB)
 		__debugbreak();
 #endif
 }
 
-//// Shader manager
 /* simple shader
 GLuint Shader::compile_shader (const char* name, const char* vertex, const char* fragment) {
 	GLuint prog = glCreateProgram();
@@ -158,7 +155,7 @@ namespace shader {
 
 		std::string source;
 		if (!kiss::load_text_file(filename, &source)) {
-			fprintf(stderr, "[Shaders] \"%s\": could not find file \"%s\"!\n", shader_name, filename);
+			log("[Shaders] \"%s\": could not find file \"%s\"!\n", shader_name, filename);
 			return false;
 		}
 
@@ -185,7 +182,7 @@ namespace shader {
 
 					std::string_view inc_filename;
 					if (!quoted_string(c, &inc_filename)) {
-						fprintf(stderr, "[Shaders] \"%s\": expected filename in include at line %d!\n", shader_name, line_no);
+						log("[Shaders] \"%s\": expected filename in include at line %d!\n", shader_name, line_no);
 						success = false;
 					} else {
 
@@ -233,16 +230,14 @@ namespace shader {
 		return result;
 	}
 
-	std::string shader_macros (std::vector<MacroDefinition> const& macros, Stage stage, bool wireframe) {
+	std::string shader_macros (MacroDefinitions const& macros, Stage stage) {
 		std::string macro_text;
 		macro_text.reserve(512);
 
 		macro_text += "// Per-shader macro definitions\n";
 		macro_text += prints("#define %s\n", SHADER_STAGE_MACRO[stage]);
-		if (wireframe)
-			macro_text += prints("#define _WIREFRAME\n");
-		for (auto& m : macros)
-			macro_text += prints("#define %s %s\n", m.name.c_str(), m.value.c_str());
+		for (auto& kv : macros)
+			macro_text += prints("#define %s %s\n", kv.first.c_str(), kv.second.c_str());
 		macro_text += "\n";
 		
 		return macro_text;
@@ -308,12 +303,12 @@ namespace shader {
 		bool stage_error = status == GL_FALSE;
 		if (stage_error) {
 			// compilation failed
-			printf("[Shaders] OpenGL error in shader compilation \"%s\"!\n>>>\n%s\n<<<\n", name, log_avail ? log_str.c_str() : "<no log available>");
+			log_warn("[Shaders] OpenGL error in shader compilation \"%s\"!\n>>>\n%s\n<<<\n", name, log_avail ? log_str.c_str() : "<no log available>");
 			return true;
 		} else {
 			// compilation success
 			if (log_avail) {
-				printf("[Shaders] OpenGL shader compilation log \"%s\":\n>>>\n%s\n<<<\n", name, log_str.c_str());
+				log("[Shaders] OpenGL shader compilation log \"%s\":\n>>>\n%s\n<<<\n", name, log_str.c_str());
 			}
 			return false;
 		}
@@ -329,12 +324,12 @@ namespace shader {
 		bool error = status == GL_FALSE;
 		if (error) {
 			// linking failed
-			printf("[Shaders] OpenGL error in shader linkage \"%s\"!\n>>>\n%s\n<<<\n", name, log_avail ? log_str.c_str() : "<no log available>");
+			log_warn("[Shaders] OpenGL error in shader linkage \"%s\"!\n>>>\n%s\n<<<\n", name, log_avail ? log_str.c_str() : "<no log available>");
 			return true;
 		} else {
 			// linking success
 			if (log_avail) {
-				printf("[Shaders] OpenGL shader linkage log \"%s\":\n>>>\n%s\n<<<\n", name, log_str.c_str());
+				log("[Shaders] OpenGL shader linkage log \"%s\":\n>>>\n%s\n<<<\n", name, log_str.c_str());
 			}
 			return false;
 		}
@@ -372,7 +367,7 @@ namespace shader {
 
 	////
 	bool compile_shader (Shader& shad, const char* name, const char* dbgname,
-			std::vector<Stage> const& stages, std::vector<MacroDefinition> const& macros, bool wireframe) {
+			std::vector<Stage> const& stages, MacroDefinitions const& macros) {
 		ZoneScoped;
 		shad.src_files.clear();
 		shad.uniforms.clear();
@@ -384,7 +379,7 @@ namespace shader {
 
 		// Load shader base source file
 		if (!preprocess_include_file(name, filename.c_str(), &source, &shad.src_files)) {
-			fprintf(stderr, "[Shaders] \"%s\": shader compilation error!\n", name);
+			log("[Shaders] \"%s\": shader compilation error!\n", name);
 			return false;
 		}
 
@@ -406,7 +401,7 @@ namespace shader {
 			GLuint shad = glCreateShader(SHADER_STAGE_GLENUM[stage]);
 			glAttachShader(prog, shad);
 	
-			std::string stage_source = preprocessor_insert_macro_defs(source, filename.c_str(), shader_macros(macros, stage, wireframe));
+			std::string stage_source = preprocessor_insert_macro_defs(source, filename.c_str(), shader_macros(macros, stage));
 
 			{
 				const char* ptr = stage_source.c_str();
@@ -436,8 +431,8 @@ namespace shader {
 		}
 
 		if (error) {
-			fprintf(stderr, "[Shaders] \"%s\": shader compilation error!\n", name);
-
+			log("[Shaders] \"%s\": shader compilation error!\n", name);
+			
 			glDeleteProgram(prog);
 			shad.prog = 0;
 		}

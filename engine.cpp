@@ -173,15 +173,14 @@ extern "C" {
 
 void create_cursors (Engine& eng);
 
-bool window_setup (Engine& eng, char const* window_title) {
+void window_setup (Engine& eng, char const* window_title) {
 	ZoneScoped;
-	printf("Window setup...\n");
+	log("Window setup...\n");
 
 	{
 		ZoneScopedN("glfwInit");
 		if (!glfwInit()) {
-			printf("glfwInit error!");
-			return false;
+			fatal_error("glfwInit error!");
 		}
 	}
 
@@ -215,8 +214,7 @@ bool window_setup (Engine& eng, char const* window_title) {
 			ZoneScopedN("glfwCreateWindow");
 			eng.window = glfwCreateWindow(eng.window_size.x, eng.window_size.y, window_title, NULL, NULL);
 			if (!eng.window) {
-				printf("glfwCreateWindow error!");
-				return false;
+				fatal_error("glfwCreateWindow error!");
 			}
 		}
 	}
@@ -229,15 +227,14 @@ bool window_setup (Engine& eng, char const* window_title) {
 	//
 	{
 		ZoneScopedN("opengl init");
-		printf("Opengl init...\n");
+		log("Opengl init...\n");
 
 		glfwMakeContextCurrent(eng.window);
 
 		{
 			ZoneScopedN("gladLoadGLLoader");
 			if (!gladLoadGLLoader((GLADloadproc)glfwGetProcAddress)) {
-				printf("gladLoadGLLoader error!");
-				return false;
+				fatal_error("gladLoadGLLoader error!");
 			}
 		}
 		
@@ -257,11 +254,11 @@ bool window_setup (Engine& eng, char const* window_title) {
 				_vsync_on_interval = -1;
 		
 			if (!glfwExtensionSupported("GL_ARB_bindless_texture")) {
-				fprintf(stderr, "[OpenGL] No bindless textures supported! This is bad!\n");
+				log_error("[OpenGL] No bindless textures supported! This is bad!\n");
 			}
 			if (  !glfwExtensionSupported("GL_ARB_gpu_shader5") ||
 				  !glfwExtensionSupported("GL_ARB_gpu_shader_int64")) {
-				fprintf(stderr, "[OpenGL] GL_ARB_gpu_shader5 or GL_ARB_gpu_shader_int64 not supported! This is bad!\n");
+				log_error("[OpenGL] GL_ARB_gpu_shader5 or GL_ARB_gpu_shader_int64 not supported! This is bad!\n");
 			}
 		
 			eng.set_vsync(eng.vsync);
@@ -272,7 +269,7 @@ bool window_setup (Engine& eng, char const* window_title) {
 			if (GLAD_GL_ARB_framebuffer_sRGB)
 				glEnable(GL_FRAMEBUFFER_SRGB);
 			else
-				fprintf(stderr, "[OpenGL] No sRGB framebuffers supported! Shading will be wrong!\n");
+				log_error("[OpenGL] No sRGB framebuffers supported! Shading will be wrong!\n");
 
 		#if OGL_USE_REVERSE_DEPTH
 			ogl::reverse_depth = glfwExtensionSupported("GL_ARB_clip_control");
@@ -291,9 +288,9 @@ bool window_setup (Engine& eng, char const* window_title) {
 			auto* rend = glGetString(GL_RENDERER);
 			auto* vers = glGetString(GL_VERSION);
 		
-			printf( "GL_VENDOR:   %s\n"
-					"GL_RENDERER: %s\n"
-					"GL_VERSION:  %s\n", vend, rend, vers);
+			log( "GL_VENDOR:   %s\n"
+			     "GL_RENDERER: %s\n"
+			     "GL_VERSION:  %s\n", vend, rend, vers);
 		}
 	}
 
@@ -303,8 +300,6 @@ bool window_setup (Engine& eng, char const* window_title) {
 	}
 
 	imgui_setup(eng);
-	
-	return true;
 }
 void window_shutdown (Engine& eng) {
 	ZoneScoped;
@@ -648,10 +643,9 @@ void Engine::draw_imgui () {
 Engine::Engine (const char* window_title) {
 	ZoneScoped;
 
-	printf("Engine startup...\n");
+	log("Engine startup...\n");
 
-	if (!window_setup(*this, window_title))
-		throw std::runtime_error("GLFW error"); // return return 1 from ctor
+	window_setup(*this, window_title);
 
 	{ // load window placement
 		HWND hwnd = glfwGetWin32Window(window);
@@ -664,7 +658,7 @@ Engine::Engine (const char* window_title) {
 Engine::~Engine () {
 	ZoneScoped;
 
-	printf("Engine shutdown...\n");
+	log("Engine shutdown...\n");
 
 	{ // save window placement
 		// swtich back to windowed so we don't save bogus fullscreen borderless placement
@@ -682,7 +676,7 @@ Engine::~Engine () {
 }
 
 int Engine::main_loop () {
-	printf("Starting main loop...\n");
+	log("Starting main loop...\n");
 
 	json_load();
 	

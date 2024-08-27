@@ -1,14 +1,9 @@
 #pragma once
 #include "common.hpp"
-
 #include "glad/glad.h"
 #include "tracy/TracyOpenGL.hpp"
-
-#include "camera.hpp"
-
-#include "kisslib/stb_image_write.hpp"
-
 #include "engine/dds_image/include/dds.hpp"
+#include "camera.hpp"
 
 namespace ogl {
 //
@@ -114,7 +109,7 @@ namespace shader {
 	inline void _check_uniform (Uniform& u, GLenum passed) {
 		if (u.type == passed) return;
 		if (passed == GL_INT && (u.type == GL_SAMPLER_1D || u.type == GL_SAMPLER_2D || u.type == GL_SAMPLER_3D)) return;
-		fprintf(stderr, "ogl::set_uniform type mismatch: uniform: %s[%x], passed: %s[%x]\n", enum2str(u.type), u.type, enum2str(passed), passed);
+		log("ogl::set_uniform type mismatch: uniform: %s[%x], passed: %s[%x]\n", enum2str(u.type), u.type, enum2str(passed), passed);
 		assert(false);
 	}
 
@@ -173,14 +168,11 @@ namespace shader {
 		"_GEOMETRY",
 	};
 
-	struct MacroDefinition {
-		std::string name;
-		std::string value;
-	};
+	typedef std::unordered_map<std::string, std::string> MacroDefinitions;
 
 	struct Shader;
 	bool compile_shader (Shader& shad, const char* name, const char* dbgname,
-			std::vector<Stage> const& stages, std::vector<MacroDefinition> const& macros, bool wireframe);
+			std::vector<Stage> const& stages, MacroDefinitions const& macros);
 
 	struct Shader {
 		GLuint                          prog = 0;
@@ -188,8 +180,8 @@ namespace shader {
 		std::string                     name;
 		std::string                     dbgname;
 
-		std::vector<Stage>        stages;
-		std::vector<MacroDefinition>    macros;
+		std::vector<Stage>              stages;
+		MacroDefinitions                macros;
 	
 		uniform_set                     uniforms;
 		std::vector<std::string>        src_files;
@@ -198,11 +190,40 @@ namespace shader {
 			if (prog) glDeleteProgram(prog);
 			prog = 0;
 		}
-	
-		inline bool recompile (bool wireframe) {
+		
+		// set_macro("NAME", empty string)      => macro not defined
+		// set_macro("NAME", whitespace string) => #define NAME
+		// set_macro("NAME", "VALUE")           => #define NAME VALUE
+		// return if macro changed
+		inline bool set_macro (std::string_view key, std::string_view value={}) {
+			auto it = macros.find(std::string(key)); // TODO: use better hashmap
+			if (value.empty()) {
+				if (it != macros.end()) { // remove if exists
+					macros.erase(it);
+					return true; // removed
+				}
+			}
+			else {
+				if (kiss::trim(value).empty()) value = " "; // normalize whitespace to single space for comparisons
+				
+				if (it == macros.end()) { // add if not exists
+					macros.emplace(std::string(key), std::string(value));
+					return true; // added
+				}
+				else {
+					auto old_value = std::move(it->second);
+					it->second = std::string(value);
+					if (old_value != value)
+						return true; // modified and value actually changed
+				}
+			}
+			return false;
+		}
+
+		inline bool recompile () {
 			Shader tmp;
 
-			bool success = compile_shader(tmp, name.c_str(), dbgname.c_str(), stages, macros, wireframe);
+			bool success = compile_shader(tmp, name.c_str(), dbgname.c_str(), stages, macros);
 		
 			if (success) {
 				// success, delete old shader
@@ -251,8 +272,6 @@ namespace shader {
 		// if users no longer use shader it still sticks around until the end of the program for simplicity
 		std::vector<std::unique_ptr<Shader>> shaders;
 	
-		bool wireframe = false;
-		
 		inline void shutdown () {
 			ZoneScoped;
 			shaders.clear();
@@ -266,8 +285,8 @@ namespace shader {
 					std::string const* changed_file;
 					if (changed_files.contains_any(s->src_files, FILE_ADDED|FILE_MODIFIED|FILE_RENAMED_NEW_NAME, &changed_file)) {
 						// any source file was changed
-						fprintf(stdout, "[Shaders] Recompile shader %-35s due to shader source change (%s)\n", s->name.c_str(), changed_file->c_str());
-						if (!s->recompile(wireframe))
+						log("[Shaders] Recompile shader %-35s due to shader source change (%s)\n", s->name.c_str(), changed_file->c_str());
+						if (!s->recompile())
 							success = false; // any failed shader signals reload fail
 					}
 				}
@@ -275,40 +294,39 @@ namespace shader {
 		
 			return success;
 		}
-		inline bool set_wireframe (bool wireframe) {
-			bool success = true;
 		
-			if (this->wireframe != wireframe) {
-				this->wireframe = wireframe;
-			
-				for (auto& s : shaders) {
-					fprintf(stdout, "[Shaders] Recompile shader %-35s due to wireframe toggle\n", s->name.c_str());
-					s->recompile(wireframe);
-				}
-			}
-		
-			return success;
+		// Set dbgname to override filename as shader name for debugging and logging
+		// useful when compiling different variants of a single shader file using macros
+
+		inline Shader* compile (char const* filename, MacroDefinitions&& macros = {}, bool allow_fail=false, char const* dbgname=nullptr) {
+			return compile(filename, { VERTEX_SHADER, FRAGMENT_SHADER }, std::move(macros), allow_fail, dbgname);
 		}
-	
-		inline Shader* compile (char const* name,
-				std::vector<MacroDefinition>&& macros = {},
-				std::initializer_list<Stage> stages = { VERTEX_SHADER, FRAGMENT_SHADER },
-				char const* dbgname=nullptr) {
+		inline Shader* compile_compute (char const* filename, MacroDefinitions&& macros = {}, bool allow_fail=false, char const* dbgname=nullptr) {
+			return compile(filename, { COMPUTE_SHADER }, std::move(macros), allow_fail, dbgname);
+		}
+
+		inline Shader* compile (char const* filename, std::initializer_list<Stage> stages,
+				MacroDefinitions&& macros, bool allow_fail=false, char const* dbgname=nullptr) {
 			ZoneScoped;
-		
+			
 			auto s = std::make_unique<Shader>();
-			s->name = name;
-			s->dbgname = dbgname ? dbgname : name;
+			s->name = filename;
+			s->dbgname = dbgname ? dbgname : filename;
 			s->stages = stages;
 			s->macros = std::move(macros);
 
-			bool success = compile_shader(*s, s->name.c_str(), s->dbgname.c_str(), s->stages, s->macros, wireframe);
+			log("[Shaders] Compiling shader %-35s\n", s->dbgname.c_str());
+
+			bool success = compile_shader(*s, s->name.c_str(), s->dbgname.c_str(), s->stages, s->macros);
 		
 			auto* ptr = s.get();
 			// remember shader regardless of compilation success to allow for shaders with errors
 			// to be fixed using update_recompilation()
 			shaders.push_back(std::move(s));
-		
+			
+			if (!success && !allow_fail) {
+				fatal_error("[Shaders] Failed to compile critical shader!\n");
+			}
 			return ptr;
 		}
 	};
@@ -583,8 +601,7 @@ inline void setup_single_attach_fbo (Fbo& fbo, GLuint textarget, GLuint tex, int
 		
 	GLenum status = glCheckFramebufferStatus(GL_FRAMEBUFFER);
 	if (status != GL_FRAMEBUFFER_COMPLETE) {
-		//fprintf(stderr, "glCheckFramebufferStatus: %x\n", status);
-		assert(false);
+		fatal_error("glCheckFramebufferStatus: %x\n", status);
 	}
 	
 	glBindFramebuffer(GL_FRAMEBUFFER, 0);
@@ -602,8 +619,7 @@ inline Fbo make_and_bind_temp_fbo (GLuint textarget, GLuint tex, int mip, GLenum
 		
 	GLenum status = glCheckFramebufferStatus(GL_FRAMEBUFFER);
 	if (status != GL_FRAMEBUFFER_COMPLETE) {
-		//fprintf(stderr, "glCheckFramebufferStatus: %x\n", status);
-		assert(false);
+		fatal_error("glCheckFramebufferStatus: %x\n", status);
 	}
 	return fbo;
 }
@@ -621,8 +637,7 @@ inline Fbo make_and_bind_temp_fbo_layered (GLuint tex, int mip, GLenum attach_ty
 		
 	GLenum status = glCheckFramebufferStatus(GL_FRAMEBUFFER);
 	if (status != GL_FRAMEBUFFER_COMPLETE) {
-		//fprintf(stderr, "glCheckFramebufferStatus: %x\n", status);
-		assert(false);
+		fatal_error("glCheckFramebufferStatus: %x\n", status);
 	}
 	return fbo;
 }
@@ -1341,11 +1356,11 @@ template<> inline void _upload_texture2D<uint16_t> (GLenum targ, Image<uint16_t>
 }
 
 template <typename T>
-inline void upload_image2D (GLuint tex, Image<T> const& img, bool mips=true) {
+inline void upload_image2D (GLuint tex, Image<T> const& img, bool gen_mips=true) {
 	glBindTexture(GL_TEXTURE_2D, tex);
 	_upload_texture2D(GL_TEXTURE_2D, img);
 
-	if (mips) {
+	if (gen_mips) {
 		glGenerateMipmap(GL_TEXTURE_2D);
 	} else {
 		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_BASE_LEVEL, 0);
@@ -1355,14 +1370,14 @@ inline void upload_image2D (GLuint tex, Image<T> const& img, bool mips=true) {
 	glBindTexture(GL_TEXTURE_2D, 0);
 }
 template <typename T>
-inline void upload_imageCube (GLuint tex, const Image<T> imgs[], bool mips=true) {
+inline void upload_imageCube (GLuint tex, const Image<T> imgs[], bool gen_mips=true) {
 	glBindTexture(GL_TEXTURE_CUBE_MAP, tex);
 	
 	for (int i=0; i<6; ++i) {
 		_upload_texture2D(GL_TEXTURE_CUBE_MAP_POSITIVE_X+i, imgs[i]);
 	}
 	
-	if (mips) {
+	if (gen_mips) {
 		glGenerateMipmap(GL_TEXTURE_CUBE_MAP);
 	} else {
 		glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_BASE_LEVEL, 0);
@@ -1380,7 +1395,7 @@ inline GLenum dds_compressed_internat_format (dds::Image const& img) {
 	return 0;
 }
 
-inline void upload_imageCube_DDS (GLuint tex, const dds::Image imgs[], bool mips=true) {
+inline void upload_imageCube_DDS (GLuint tex, const dds::Image imgs[], bool gen_mips=true) {
 	glBindTexture(GL_TEXTURE_CUBE_MAP, tex);
 	
 	for (int i=0; i<6; ++i) {
@@ -1392,7 +1407,7 @@ inline void upload_imageCube_DDS (GLuint tex, const dds::Image imgs[], bool mips
 			(GLsizei)imgs[i].width, (GLsizei)imgs[i].height, 0, (GLsizei)data.size(), data.data());
 	}
 			
-	if (mips) {
+	if (gen_mips) {
 		glGenerateMipmap(GL_TEXTURE_CUBE_MAP);
 	} else {
 		glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_BASE_LEVEL, 0);
@@ -1403,23 +1418,23 @@ inline void upload_imageCube_DDS (GLuint tex, const dds::Image imgs[], bool mips
 }
 
 template <typename T>
-inline bool upload_texture2D (GLuint tex, const char* filepath, bool mips=true) {
+inline bool upload_texture2D (GLuint tex, const char* filepath, bool gen_mips=true) {
 	Image<T> img;
 	if (!Image<T>::load_from_file(filepath, &img)) {
-		fprintf(stderr, "Error! Could not load texture \"%s\"\n", filepath);
+		log("Error! Could not load texture \"%s\"\n", filepath);
 		return false;
 	}
 
-	upload_image2D(tex, img, mips);
+	upload_image2D(tex, img, gen_mips);
 	return true;
 }
 template <typename T>
-inline bool upload_texture2D (Texture2D& tex, const char* filepath, bool mips=true) {
-	return upload_texture2D<T>((GLuint)tex, filepath, mips);
+inline bool upload_texture2D (Texture2D& tex, const char* filepath, bool gen_mips=true) {
+	return upload_texture2D<T>((GLuint)tex, filepath, gen_mips);
 }
 
 template <typename T>
-inline bool upload_textureCube (TextureCubemap& tex, const char* filepath_format, bool mips=true) {
+inline bool upload_textureCube (TextureCubemap& tex, const char* filepath_format, bool gen_mips=true) {
 	static constexpr char const* CUBEMAP_FACE_FILES_NAMES[] = {"px","nx","py","ny","pz","nz"};
 	
 	Image<T> imgs[6];
@@ -1427,21 +1442,20 @@ inline bool upload_textureCube (TextureCubemap& tex, const char* filepath_format
 		auto filepath = prints(filepath_format, CUBEMAP_FACE_FILES_NAMES[i]);
 
 		if (!Image<T>::load_from_file(filepath.c_str(), &imgs[i])) {
-			fprintf(stderr, "Error! Could not load texture \"%s\"\n", filepath.c_str());
+			log("Error! Could not load texture \"%s\"\n", filepath.c_str());
 			return false;
 		}
 	}
 	
-	upload_imageCube(tex, imgs, mips);
+	upload_imageCube(tex, imgs, gen_mips);
 	return true;
 }
 
 template <typename T>
-inline Texture2D texture2D (std::string_view label, const char* filepath, bool mips=true) {
+inline Texture2D texture2D (std::string_view label, const char* filepath, bool gen_mips=true) {
 	Texture2D tex(label);
-	if (!upload_texture2D<T>((GLuint)tex, filepath, mips)) {
-		fprintf(stderr, "Texture \"%s\" not found!\n", filepath);
-		exit(1);
+	if (!upload_texture2D<T>((GLuint)tex, filepath, gen_mips)) {
+		fatal_error("Texture \"%s\" not found!\n", filepath);
 	}
 	return tex;
 }
@@ -1550,7 +1564,7 @@ public:
 		
 			GLenum status = glCheckFramebufferStatus(GL_FRAMEBUFFER);
 			if (status != GL_FRAMEBUFFER_COMPLETE) {
-				fprintf(stderr, "glCheckFramebufferStatus: %x\n", status);
+				fatal_error("glCheckFramebufferStatus: %x\n", status);
 			}
 		}
 
@@ -1596,7 +1610,7 @@ public:
 		
 			GLenum status = glCheckFramebufferStatus(GL_FRAMEBUFFER);
 			if (status != GL_FRAMEBUFFER_COMPLETE) {
-				fprintf(stderr, "glCheckFramebufferStatus: %x\n", status);
+				fatal_error("glCheckFramebufferStatus: %x\n", status);
 			}
 		}
 

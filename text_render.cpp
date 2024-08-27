@@ -23,7 +23,7 @@ Image<uint8_t> TextRenderer::generate_tex () {
 		uint64_t ttfsz;
 		auto ttfdata = load_binary_file(font_path.c_str(), &ttfsz);
 		if (!ttfdata.get()) {
-			fprintf(stderr, "font file \"%s\" not found!\n", font_path.c_str());
+			log_error("font file \"%s\" not found!\n", font_path.c_str());
 
 			// try to at least render something if font is not found
 			atlas.set(0,0, 255);
@@ -33,11 +33,11 @@ Image<uint8_t> TextRenderer::generate_tex () {
 
 			if (!enable_sdf) {
 				if (!generate_bitmap(atlas, &range, 1, ttfdata.get())) {
-					fprintf(stderr, "error during init_bitmap()!\n");
+					log_error("error during init_bitmap()!\n");
 				}
 			} else {
 				if (!generate_sdf(atlas, &range, 1, ttfdata.get())) {
-					fprintf(stderr, "error during init_sdf()!\n");
+					log_error("error during init_sdf()!\n");
 				}
 			}
 		}
