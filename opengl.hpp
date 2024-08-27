@@ -191,36 +191,38 @@ namespace shader {
 			prog = 0;
 		}
 		
-		// set_macro("NAME", empty string)      => macro not defined
+		// set_macro("NAME", nullopt)           => macro not defined
 		// set_macro("NAME", whitespace string) => #define NAME
 		// set_macro("NAME", "VALUE")           => #define NAME VALUE
 		// return if macro changed
-		inline bool set_macro (std::string_view key, std::string_view value={}) {
+		bool set_macro (std::string_view key, std::optional<std::string_view> value = std::nullopt) {
 			auto it = macros.find(std::string(key)); // TODO: use better hashmap
-			if (value.empty()) {
+			if (!value.has_value()) {
 				if (it != macros.end()) { // remove if exists
 					macros.erase(it);
 					return true; // removed
 				}
 			}
 			else {
-				if (kiss::trim(value).empty()) value = " "; // normalize whitespace to single space for comparisons
-				
 				if (it == macros.end()) { // add if not exists
-					macros.emplace(std::string(key), std::string(value));
+					macros.emplace(std::string(key), std::string(*value));
 					return true; // added
 				}
 				else {
 					auto old_value = std::move(it->second);
-					it->second = std::string(value);
+					it->second = std::string(*value);
 					if (old_value != value)
 						return true; // modified and value actually changed
 				}
 			}
 			return false;
 		}
+		bool set_macro (std::string_view key, bool defined) {
+			typedef std::optional<std::string_view> T;
+			return set_macro(key, defined ? T("1") : T(std::nullopt));
+		}
 
-		inline bool recompile () {
+		bool recompile () {
 			Shader tmp;
 
 			bool success = compile_shader(tmp, name.c_str(), dbgname.c_str(), stages, macros);
@@ -244,14 +246,14 @@ namespace shader {
 			return success;
 		}
 	
-		inline GLint get_uniform_location (std::string_view const& name) {
+		GLint get_uniform_location (std::string_view const& name) {
 			int i = indexof(uniforms, name, _findUniform);
 			if (i < 0) return i;
 			return uniforms[i].location;
 		}
 	
 		template <typename T>
-		inline void set_uniform (std::string_view const& name, T const& val) {
+		void set_uniform (std::string_view const& name, T const& val) {
 			int i = indexof(uniforms, name, _findUniform);
 			if (i >= 0)
 				_set_uniform(uniforms[i], val);
@@ -260,7 +262,7 @@ namespace shader {
 		// WARNING: Opengl for whatever reason decided that you need to specify "uniform_name[0]" for uniform arrays
 		// Don't let yourself be confused by this again!
 		template <typename T>
-		inline void set_uniform_array (std::string_view const& name, T const* values, int arr_count) {
+		void set_uniform_array (std::string_view const& name, T const* values, int arr_count) {
 			int i = indexof(uniforms, name, _findUniform);
 			if (i >= 0)
 				_set_uniform(uniforms[i], values, arr_count);
@@ -272,12 +274,12 @@ namespace shader {
 		// if users no longer use shader it still sticks around until the end of the program for simplicity
 		std::vector<std::unique_ptr<Shader>> shaders;
 	
-		inline void shutdown () {
+		void shutdown () {
 			ZoneScoped;
 			shaders.clear();
 		}
 	
-		inline bool update_recompilation (ChangedFiles& changed_files) {
+		bool update_recompilation (ChangedFiles& changed_files) {
 			bool success = true;
 		
 			if (changed_files.any()) {
@@ -298,14 +300,14 @@ namespace shader {
 		// Set dbgname to override filename as shader name for debugging and logging
 		// useful when compiling different variants of a single shader file using macros
 
-		inline Shader* compile (char const* filename, MacroDefinitions&& macros = {}, bool allow_fail=false, char const* dbgname=nullptr) {
+		Shader* compile (char const* filename, MacroDefinitions&& macros = {}, bool allow_fail=false, char const* dbgname=nullptr) {
 			return compile(filename, { VERTEX_SHADER, FRAGMENT_SHADER }, std::move(macros), allow_fail, dbgname);
 		}
-		inline Shader* compile_compute (char const* filename, MacroDefinitions&& macros = {}, bool allow_fail=false, char const* dbgname=nullptr) {
+		Shader* compile_compute (char const* filename, MacroDefinitions&& macros = {}, bool allow_fail=false, char const* dbgname=nullptr) {
 			return compile(filename, { COMPUTE_SHADER }, std::move(macros), allow_fail, dbgname);
 		}
 
-		inline Shader* compile (char const* filename, std::initializer_list<Stage> stages,
+		Shader* compile (char const* filename, std::initializer_list<Stage> stages,
 				MacroDefinitions&& macros, bool allow_fail=false, char const* dbgname=nullptr) {
 			ZoneScoped;
 			
