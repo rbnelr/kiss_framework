@@ -1,4 +1,5 @@
 #pragma once
+#include "common.hpp"
 #include "kisslib/kissmath.hpp"
 #include "input.hpp"
 
@@ -508,11 +509,19 @@ struct Flycam {
 			}
 		}
 
+		return clac_view(viewport_size);
+	}
+
+	View3D clac_view (float2 const& viewport_size) {
+
 		float aspect = viewport_size.x / viewport_size.y;
+
+		float3x3 cam2world_rot, world2cam_rot;
+		azimuthal_mount(rot_aer, &world2cam_rot, &cam2world_rot);
 
 		float3x4 world2cam = float3x4(world2cam_rot) * translate(-pos);
 		float3x4 cam2world = translate(pos) * float3x4(cam2world_rot);
-
+		
 		if (!ortho) {
 			return persp_view(vfov, aspect, clip_near, clip_far, world2cam, cam2world, viewport_size);
 		}
