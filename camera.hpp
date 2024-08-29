@@ -3,12 +3,6 @@
 #include "kisslib/kissmath.hpp"
 #include "input.hpp"
 
-#if OGL_USE_REVERSE_DEPTH
-namespace ogl {
-	extern bool reverse_depth;
-}
-#endif
-
 struct View3D {
 	// forward VP matrices
 	float4x4	world2clip;
@@ -167,7 +161,7 @@ inline View3D persp_view (float vfov, float aspect, float near, float far,
 	float a, b;
 #if OGL_USE_REVERSE_DEPTH
 	if (ogl::reverse_depth) {
-		// maps cam_z [-near,inf) -> depth [1,0]
+		// maps cam_z [-near,-inf) -> depth [1,0]
 		
 		// use_reverse_depth with use infinite far plane
 		// visible range on z axis in opengl and vulkan goes from -near to -inf
