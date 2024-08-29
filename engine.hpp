@@ -7,10 +7,6 @@ struct GLFWwindow;
 struct GLFWcursor;
 
 class Engine {
-	friend SERIALIZE_TO_JSON(Engine) { SERIALIZE_TO_JSON_EXPAND(input, vsync) }
-	friend SERIALIZE_FROM_JSON(Engine) { SERIALIZE_FROM_JSON_EXPAND(input, vsync)
-		t.set_vsync(t.vsync); // set json-loaded vsync
-	}
 public:
 
 	Engine (const char* window_title);

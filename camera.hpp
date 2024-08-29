@@ -53,6 +53,55 @@ struct View3D {
 	}
 };
 
+struct CameraBinds {
+	SERIALIZE(CameraBinds, rotate, rotate_sensitivity,
+		move_left, move_right, move_back, move_forw, move_down, move_up,
+		rot_left, rot_right, zoom_in, zoom_out, change_fov, modifier)
+
+	Button rotate      = MOUSE_BUTTON_RIGHT;
+
+	float rotate_sensitivity = deg(120) / 1000;
+	
+	Button move_left   = KEY_A;
+	Button move_right  = KEY_D;
+	Button move_back   = KEY_S;
+	Button move_forw   = KEY_W;
+	Button move_down   = KEY_LEFT_CONTROL;
+	Button move_up     = KEY_SPACE;
+	
+	Button roll_left    = KEY_NULL;
+	Button roll_right   = KEY_NULL;
+
+	Button rot_left    = KEY_Q;
+	Button rot_right   = KEY_E;
+
+	Button zoom_in     = KEY_KP_ADD;
+	Button zoom_out    = KEY_KP_SUBTRACT;
+
+	Button change_fov  = KEY_F;
+
+	Button modifier    = KEY_LEFT_SHIFT;
+
+	float3 get_local_move_dir (Input& I) const {
+		float3 move_dir = 0;
+		if (I.buttons[move_left ].is_down) move_dir.x -= 1;
+		if (I.buttons[move_right].is_down) move_dir.x += 1;
+		if (I.buttons[move_forw ].is_down) move_dir.z -= 1;
+		if (I.buttons[move_back ].is_down) move_dir.z += 1;
+		if (I.buttons[move_down ].is_down) move_dir.y -= 1;
+		if (I.buttons[move_up   ].is_down) move_dir.y += 1;
+		return normalizesafe(move_dir);
+	}
+
+	float2 get_mouselook_delta (Input& I, float vfov) const {
+		// sens scales with fov since muscle memory works with visual distances on screen, not with in game angles
+		// (mostly? 180deg flip might also be muscle memory?)
+		if (!I.cursor_enabled || I.buttons[rotate].is_down)
+			return I.mouse_delta * rotate_sensitivity * vfov;
+		return 0;
+	}
+};
+
 inline View3D ortho_view (float w, float h, float near, float far,
 		float3x4 const& world2cam, float3x4 const& cam2world, float2 viewport_size) {
 	
@@ -174,20 +223,14 @@ inline void azimuthal_mount (float3 const& aer, float3x3* out_world2cam, float3x
 	if (out_cam2world) *out_cam2world = rotate3_Z(+aer.x) * rotate3_X(+aer.y + deg(90)) * rotate3_Z(-aer.z);
 }
 
-inline void rotate_with_mouselook (Input& I, float vfov, float3* aer,
+inline void rotate_with_mouselook (Input& I, float vfov, CameraBinds const& binds, float3* aer,
 		float azim_min=deg(-180), float azim_max=deg(180), float elev_min=deg(-85), float elev_max=deg(85)) {
 	float& azimuth   = aer->x;
 	float& elevation = aer->y;
 	float& roll      = aer->z;
 
 	// Mouselook
-	auto raw_mouselook = I.get_fps_mouselook_delta();
-
-	float2 sens = I.mouselook_sens / 1000;
-	sens.x *= I.mouselook_sens_x_scale;
-	// sens scales with fov since muscle memory works with visual distances on screen, not with in game angles
-	// (mostly? 180deg flip might also be muscle memory?)
-	float2 delta = raw_mouselook * vfov * sens;
+	float2 delta = binds.get_mouselook_delta(I, vfov);
 
 	azimuth   -= delta.x;
 	elevation += delta.y;
@@ -197,8 +240,8 @@ inline void rotate_with_mouselook (Input& I, float vfov, float3* aer,
 
 	// roll with keys
 	float roll_dir = 0;
-	//if (I.buttons[KEY_Q].is_down) roll_dir += 1;
-	//if (I.buttons[KEY_E].is_down) roll_dir -= 1;
+	if (I.buttons[binds.roll_left ].is_down) roll_dir += 1;
+	if (I.buttons[binds.roll_right].is_down) roll_dir -= 1;
 
 	float roll_speed = deg(90);
 
@@ -367,8 +410,6 @@ struct Camera2D {
 		size.y = powf(2.0f, -zoom);
 		size.x = powf(2.0f, -zoom - stretch) * viewport_size.x / viewport_size.y;
 
-		float aspect = size.x / size.y;
-
 		float2x2 mat_rot = rotate2(rot);
 
 		float2 delta;
@@ -419,7 +460,8 @@ struct Flycam {
 
 	bool planar = true;
 
-	Flycam (float3 pos=0, float3 rot_aer=0, float base_speed=0.5f): pos{pos}, rot_aer{rot_aer}, base_speed{base_speed} {}
+	Flycam (float3 pos=0, float3 rot_aer=0, float base_speed=0.5f):
+		pos{pos}, rot_aer{rot_aer}, base_speed{base_speed} {}
 
 	void imgui (const char* label="Flycam") {
 		if (!ImGui::TreeNode(label)) return;
@@ -455,38 +497,30 @@ struct Flycam {
 		ImGui::TreePop();
 	}
 
-	View3D update (Input& I, float2 const& viewport_size) {
+	void update (Input& I, float2 const& viewport_size, CameraBinds const& binds) {
 
 		//// look
-		rotate_with_mouselook(I, vfov, &rot_aer);
+		rotate_with_mouselook(I, vfov, binds, &rot_aer);
 
-		float3x3 cam2world_rot, world2cam_rot;
-		azimuthal_mount(rot_aer, &world2cam_rot, &cam2world_rot);
+		float3x3 cam2world;
+		azimuthal_mount(rot_aer, nullptr, &cam2world);
 		
 		{ //// movement
-			float3 move_dir = 0;
-			if (I.buttons[KEY_A]           .is_down) move_dir.x -= 1;
-			if (I.buttons[KEY_D]           .is_down) move_dir.x += 1;
-			if (I.buttons[KEY_W]           .is_down) move_dir.z -= 1;
-			if (I.buttons[KEY_S]           .is_down) move_dir.z += 1;
-			if (I.buttons[KEY_LEFT_CONTROL].is_down) move_dir.y -= 1;
-			if (I.buttons[KEY_SPACE]       .is_down) move_dir.y += 1;
-
-			move_dir = normalizesafe(move_dir);
+			float3 move_dir = binds.get_local_move_dir(I);
 			float move_speed = length(move_dir); // could be analog with gamepad
 
 			if (move_speed == 0.0f)
 				cur_speed = base_speed; // no movement resets speed
 
-			if (I.buttons[KEY_LEFT_SHIFT].is_down) {
+			if (I.buttons[binds.modifier].is_down) {
 				move_speed *= fast_multiplier;
 
-				cur_speed += base_speed * speedup_factor * I.unscaled_dt;
+				cur_speed += base_speed * speedup_factor * I.real_dt;
 			}
 
 			cur_speed = clamp(cur_speed, base_speed, max_speed);
 
-			float3 delta_cam = cur_speed * move_dir * I.unscaled_dt;
+			float3 delta_cam = cur_speed * move_dir * I.real_dt;
 
 			if (planar) {
 				float2 delta2 = rotate2(rot_aer.x) * float2(delta_cam.x, -delta_cam.z);
@@ -495,12 +529,12 @@ struct Flycam {
 				pos.z += delta_cam.y;
 			}
 			else {
-				pos += cam2world_rot * delta_cam;
+				pos += cam2world * delta_cam;
 			}
 		}
 
 		{ //// speed or fov change with mousewheel
-			if (!I.buttons[KEY_F].is_down) {
+			if (!I.buttons[binds.change_fov].is_down) {
 				float delta_log = 0.1f * I.mouse_wheel_delta;
 				base_speed = powf(2.0f, log2f(base_speed) +delta_log );
 			} else {
@@ -509,7 +543,7 @@ struct Flycam {
 			}
 		}
 
-		return clac_view(viewport_size);
+		// View calculation removed because it made more sense to compute it seperately in city builder project
 	}
 
 	View3D clac_view (float2 const& viewport_size) {

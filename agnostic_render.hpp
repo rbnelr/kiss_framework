@@ -212,40 +212,6 @@ struct DebugDraw {
 	void cylinder (float3 const& base, float radius, float height, lrgba const& col, int sides=32);
 
 	void axis_gizmo (View3D const& view, int2 const& viewport_size);
-	
-	void camera (View3D const& view, lrgba const& col) {
-		float2 P = view.frust_near_size*0.5f;
-		float N = view.clip_near;
-
-		float3 n0 = (float3x4)view.cam2world * float3(-P.x,-P.y,-N);
-		float3 n1 = (float3x4)view.cam2world * float3(+P.x,-P.y,-N);
-		float3 n2 = (float3x4)view.cam2world * float3(+P.x,+P.y,-N);
-		float3 n3 = (float3x4)view.cam2world * float3(-P.x,+P.y,-N);
-		float3 f0 = normalize(n0 - view.cam_pos) * 1000;
-		float3 f1 = normalize(n1 - view.cam_pos) * 1000;
-		float3 f2 = normalize(n2 - view.cam_pos) * 1000;
-		float3 f3 = normalize(n3 - view.cam_pos) * 1000;
-		
-		float3 nc = (float3x4)view.cam2world * float3(0, P.y + P.x*2.0f,-N);
-
-		line(n0, n1, col);
-		line(n1, n2, col);
-		line(n2, n3, col);
-		line(n3, n0, col);
-
-		line(n2, nc, col);
-		line(nc, n3, col);
-
-		line(n0, f0, col);
-		line(n1, f1, col);
-		line(n2, f2, col);
-		line(n3, f3, col);
-
-		line(f0, f1, col);
-		line(f1, f2, col);
-		line(f2, f3, col);
-		line(f3, f0, col);
-	}
 
 	TextRenderer text;
 };

@@ -135,7 +135,7 @@ void do_imgui (Engine& eng) {
 
 			if (imgui_Header("Performance", true)) {
 				eng.fps_display.push_timing(eng.input.real_dt);
-				eng.fps_display.imgui_display("framerate", eng.input.dt, true);
+				eng.fps_display.imgui_display("framerate", eng.input.real_dt, true);
 			
 				//ImGui::Text("Chunks drawn %4d / %4d", world->chunks.chunks.count() - world->chunks.count_culled, world->chunks.chunks.count());
 				ImGui::PopID();
@@ -471,7 +471,7 @@ void glfw_input_pre_gameloop (Engine& eng) {
 	eng.input.set_cursor_mode(eng, eng.input.cursor_enabled);
 	eng.input._prev_cursor_enabled = eng.input.cursor_enabled;
 
-	eng.input.dt = 0; // dt zero on first frame
+	eng.input.real_dt = 0; // dt zero on first frame
 	eng.input.frame_begin_ts = get_timestamp();
 }
 void glfw_sample_non_callback_input (Engine& eng) {
