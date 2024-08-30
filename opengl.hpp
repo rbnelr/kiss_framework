@@ -591,7 +591,48 @@ public:
 	operator GLuint () const { return fbo; }
 };
 
-inline void setup_single_attach_fbo (Fbo& fbo, GLuint textarget, GLuint tex, int mip, GLenum attach_type=GL_COLOR_ATTACHMENT0) {
+class Render_Texture {
+	GLuint tex = 0;
+public:
+	MOVE_ONLY_CLASS_MEMBER(Render_Texture, tex);
+	
+	Render_Texture () {} // not allocated
+	Render_Texture (std::string_view label, int2 size, GLenum format, int levels=1, int msaa=0) {
+		glGenTextures(1, &tex);
+
+		if (msaa > 1) {
+			glBindTexture(GL_TEXTURE_2D_MULTISAMPLE, tex);
+			OGL_DBG_LABEL(GL_TEXTURE, tex, label);
+
+			glTexStorage2DMultisample(GL_TEXTURE_2D_MULTISAMPLE, msaa, format, size.x, size.y, GL_TRUE);
+			glTexParameteri(GL_TEXTURE_2D_MULTISAMPLE, GL_TEXTURE_BASE_LEVEL, 0);
+			glTexParameteri(GL_TEXTURE_2D_MULTISAMPLE, GL_TEXTURE_MAX_LEVEL, 0);
+			glTexParameterf(GL_TEXTURE_2D_MULTISAMPLE, GL_TEXTURE_MAG_FILTER, GL_LINEAR); // Avoid supposed fbo incomplete error possible from this
+			glTexParameterf(GL_TEXTURE_2D_MULTISAMPLE, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+
+			glBindTexture(GL_TEXTURE_2D_MULTISAMPLE, 0);
+		}
+		else {
+			glBindTexture(GL_TEXTURE_2D, tex);
+			OGL_DBG_LABEL(GL_TEXTURE, tex, label);
+
+			glTexStorage2D(GL_TEXTURE_2D, levels, format, size.x, size.y);
+			glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_BASE_LEVEL, 0);
+			glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAX_LEVEL, levels-1);
+			glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+			glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+
+			glBindTexture(GL_TEXTURE_2D, 0);
+		}
+	}
+	~Render_Texture () {
+		if (tex) glDeleteTextures(1, &tex);
+	}
+
+	operator GLuint () const { return tex; }
+};
+
+inline void setup_single_attach_fbo (Fbo& fbo, GLuint tex, int mip, GLuint textarget=GL_TEXTURE_2D, GLenum attach_type=GL_COLOR_ATTACHMENT0) {
 	glBindFramebuffer(GL_FRAMEBUFFER, fbo);
 
 	glFramebufferTexture2D(GL_FRAMEBUFFER, attach_type, textarget, tex, mip);
@@ -604,31 +645,19 @@ inline void setup_single_attach_fbo (Fbo& fbo, GLuint textarget, GLuint tex, int
 	if (status != GL_FRAMEBUFFER_COMPLETE) {
 		fatal_error("glCheckFramebufferStatus: %x\n", status);
 	}
-	
+
 	glBindFramebuffer(GL_FRAMEBUFFER, 0);
 }
-
-inline Fbo make_and_bind_temp_fbo (GLuint textarget, GLuint tex, int mip, GLenum attach_type=GL_COLOR_ATTACHMENT0) {
-	auto fbo = Fbo("tmp_fbo");
-	glBindFramebuffer(GL_FRAMEBUFFER, fbo);
-
-	glFramebufferTexture2D(GL_FRAMEBUFFER, attach_type, textarget, tex, mip);
-	if (attach_type == GL_COLOR_ATTACHMENT0) {
-		GLuint bufs[] = { attach_type };
-		glDrawBuffers(ARRLEN(bufs), bufs);
-	}
-		
-	GLenum status = glCheckFramebufferStatus(GL_FRAMEBUFFER);
-	if (status != GL_FRAMEBUFFER_COMPLETE) {
-		fatal_error("glCheckFramebufferStatus: %x\n", status);
-	}
+inline Fbo single_attach_fbo (std::string_view label, GLuint tex, int mip, GLuint textarget=GL_TEXTURE_2D, GLenum attach_type=GL_COLOR_ATTACHMENT0) {
+	auto fbo = Fbo(label);
+	setup_single_attach_fbo(fbo, tex, mip, textarget, attach_type);
 	return fbo;
 }
-inline Fbo make_and_bind_temp_fbo_layered (GLuint tex, int mip, GLenum attach_type=GL_COLOR_ATTACHMENT0) {
-	auto fbo = Fbo("tmp_fbo");
+
+inline void setup_layered_fbo (Fbo& fbo, GLuint tex, int mip, GLenum attach_type=GL_COLOR_ATTACHMENT0) {
 	glBindFramebuffer(GL_FRAMEBUFFER, fbo);
 
-	// attaches entire eg. cubemap as "layered image" which using a geometry shader, can be draw to in a single drawcall
+	// can attach entire eg. cubemap as "layered image" which using a geometry shader, can be draw to in a single drawcall
 	// NOTE: glFramebufferTextureLayer seems to attach a particular layer of the cubemap as single image, just like glFramebufferTexture2D(.., GL_TEXTURE_CUBE_MAP_POSITIVE_X, ...)
 	glFramebufferTexture(GL_FRAMEBUFFER, attach_type, tex, mip);
 	if (attach_type == GL_COLOR_ATTACHMENT0) {
@@ -640,6 +669,12 @@ inline Fbo make_and_bind_temp_fbo_layered (GLuint tex, int mip, GLenum attach_ty
 	if (status != GL_FRAMEBUFFER_COMPLETE) {
 		fatal_error("glCheckFramebufferStatus: %x\n", status);
 	}
+
+	glBindFramebuffer(GL_FRAMEBUFFER, 0);
+}
+inline Fbo layered_fbo (std::string_view label, GLuint tex, int mip, GLenum attach_type=GL_COLOR_ATTACHMENT0) {
+	auto fbo = Fbo(label);
+	setup_layered_fbo(fbo, tex, mip, attach_type);
 	return fbo;
 }
 
@@ -705,8 +740,11 @@ inline void dispatch_compute (int3 count, int3 workgroup_size) {
 // upload data to buffer once via pointer
 inline void upload_buffer (GLenum target, GLuint buf, size_t size, void const* data, GLenum usage = GL_STATIC_DRAW) {
 	glBindBuffer(target, buf);
-
-	glBufferData(target, size, data, usage);
+	
+	glInvalidateBufferData(buf); // Does this help anything?
+	glBufferData(target, size, nullptr, usage); // without this: Pixel transfer is synchronized with 3D rendering. ??
+	if (size > 0)
+		glBufferData(target, size, data, usage);
 
 	glBindBuffer(target, 0);
 }
@@ -714,6 +752,7 @@ inline void upload_buffer (GLenum target, GLuint buf, size_t size, void const* d
 inline void stream_buffer (GLenum target, GLuint buf, size_t size, void const* data, GLenum usage = GL_STREAM_DRAW) {
 	glBindBuffer(target, buf);
 
+	glInvalidateBufferData(buf); // Does this help anything?
 	glBufferData(target, size, nullptr, usage);
 	if (size > 0)
 		glBufferData(target, size, data, usage);
@@ -767,6 +806,11 @@ struct VertexBufferI {
 	template <typename VT, typename IT> void stream (std::vector<VT> const& vertices, std::vector<IT> const& indices) {
 		stream(vertices.data(), vertices.size(), indices.data(), indices.size());
 	}
+	
+	void invalidate_mesh () {
+		glInvalidateBufferData(vbo);
+		glInvalidateBufferData(ebo);
+	}
 };
 
 // Non-indexed and instanced (VAO + mesh VBO + instances VBO) with uploading functions (vao configured externally)
@@ -811,6 +855,10 @@ struct VertexBufferInstancedI {
 	}
 	template <typename IT> void stream_instances (std::vector<IT> const& instance_data) {
 		stream_instances(instance_data.data(), instance_data.size());
+	}
+
+	void invalidate_instances () {
+		glInvalidateBufferData(instances);
 	}
 };
 
@@ -968,6 +1016,7 @@ namespace state {
 			_Texture (Texture3D      const& tex): type{ GL_TEXTURE_3D       }, tex{tex} {}
 			_Texture (Texture2DArray const& tex): type{ GL_TEXTURE_2D_ARRAY }, tex{tex} {}
 			_Texture (TextureCubemap const& tex): type{ GL_TEXTURE_CUBE_MAP }, tex{tex} {}
+			_Texture (Render_Texture const& tex): type{ GL_TEXTURE_2D       }, tex{tex} {}
 		};
 		std::string_view	uniform_name;
 		_Texture			tex;
@@ -1459,48 +1508,6 @@ struct CommonUniforms {
 			glUniformBlockBinding(prog, block_idx, UBO_BINDING);
 	}
 };
-#endif
-
-class Render_Texture {
-	GLuint tex = 0;
-public:
-	MOVE_ONLY_CLASS_MEMBER(Render_Texture, tex);
-	
-	Render_Texture () {} // not allocated
-	Render_Texture (std::string_view label, int2 size, GLenum format, int levels=1, int msaa=0) {
-		glGenTextures(1, &tex);
-
-		if (msaa > 1) {
-			glBindTexture(GL_TEXTURE_2D_MULTISAMPLE, tex);
-			OGL_DBG_LABEL(GL_TEXTURE, tex, label);
-
-			glTexStorage2DMultisample(GL_TEXTURE_2D_MULTISAMPLE, msaa, format, size.x, size.y, GL_TRUE);
-			glTexParameteri(GL_TEXTURE_2D_MULTISAMPLE, GL_TEXTURE_BASE_LEVEL, 0);
-			glTexParameteri(GL_TEXTURE_2D_MULTISAMPLE, GL_TEXTURE_MAX_LEVEL, 0);
-			glTexParameterf(GL_TEXTURE_2D_MULTISAMPLE, GL_TEXTURE_MAG_FILTER, GL_LINEAR); // Avoid supposed fbo incomplete error possible from this
-			glTexParameterf(GL_TEXTURE_2D_MULTISAMPLE, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
-
-			glBindTexture(GL_TEXTURE_2D_MULTISAMPLE, 0);
-		}
-		else {
-			glBindTexture(GL_TEXTURE_2D, tex);
-			OGL_DBG_LABEL(GL_TEXTURE, tex, label);
-
-			glTexStorage2D(GL_TEXTURE_2D, levels, format, size.x, size.y);
-			glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_BASE_LEVEL, 0);
-			glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAX_LEVEL, levels-1);
-			glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
-			glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
-
-			glBindTexture(GL_TEXTURE_2D, 0);
-		}
-	}
-	~Render_Texture () {
-		if (tex) glDeleteTextures(1, &tex);
-	}
-
-	operator GLuint () const { return tex; }
-};
 
 struct Renderbuffer {
 	MOVE_ONLY_CLASS(Renderbuffer); // No move implemented for now
@@ -1681,6 +1688,7 @@ struct FramebufferTexture {
 		return renderscale.nearest ? fbo_sampler_nearest : fbo_sampler;
 	}
 };
+#endif
 
 inline void draw_fullscreen_triangle (StateManager& state) {
 	PipelineState s;
