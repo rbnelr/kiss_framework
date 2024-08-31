@@ -590,6 +590,42 @@ public:
 
 	operator GLuint () const { return fbo; }
 };
+class UploadPbo {
+	GLuint pbo = 0;
+public:
+	MOVE_ONLY_CLASS_MEMBER(UploadPbo, pbo);
+
+	UploadPbo () {} // not allocated
+	UploadPbo (std::string_view label) { // allocate
+		glGenBuffers(1, &pbo);
+		glBindBuffer(GL_PIXEL_UNPACK_BUFFER, pbo);
+		OGL_DBG_LABEL(GL_BUFFER, pbo, label);
+		glBindBuffer(GL_PIXEL_UNPACK_BUFFER, 0);
+	}
+	~UploadPbo () {
+		if (pbo) glDeleteBuffers(1, &pbo);
+	}
+
+	operator GLuint () const { return pbo; }
+};
+class DownloadPbo {
+	GLuint pbo = 0;
+public:
+	MOVE_ONLY_CLASS_MEMBER(DownloadPbo, pbo);
+
+	DownloadPbo () {} // not allocated
+	DownloadPbo (std::string_view label) { // allocate
+		glGenBuffers(1, &pbo);
+		glBindBuffer(GL_PIXEL_PACK_BUFFER, pbo);
+		OGL_DBG_LABEL(GL_BUFFER, pbo, label);
+		glBindBuffer(GL_PIXEL_PACK_BUFFER, 0);
+	}
+	~DownloadPbo () {
+		if (pbo) glDeleteBuffers(1, &pbo);
+	}
+
+	operator GLuint () const { return pbo; }
+};
 
 class Render_Texture {
 	GLuint tex = 0;
@@ -1387,6 +1423,12 @@ inline int calc_mipmaps (int w, int h) {
 	//	w = max(w / 2, 1);
 	//	h = max(h / 2, 1);
 	//}
+}
+inline int calc_mipmaps (int2 full_res) {
+	return calc_mipmaps(full_res.x, full_res.y);
+}
+inline int2 calc_mip_res (int2 full_res, int mip) {
+	return max(full_res >> mip, int2(1));
 }
 
 template <typename T>
