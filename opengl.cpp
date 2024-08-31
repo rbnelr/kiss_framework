@@ -434,7 +434,7 @@ namespace shader {
 			log("[Shaders] \"%s\": shader compilation error!\n", name);
 			
 			glDeleteProgram(prog);
-			shad.prog = 0;
+			prog = 0;
 		}
 		shad.prog = prog;
 		return !error;
