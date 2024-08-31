@@ -436,7 +436,8 @@ struct Flycam {
 
 	float3 pos = 0;
 	float3 rot_aer = 0;
-
+	
+	float default_vfov = deg(70);
 	float vfov = deg(70);
 	float ortho_size = 50;
 
@@ -468,8 +469,12 @@ struct Flycam {
 		
 		ImGui::Checkbox("ortho", &ortho);
 
-		if (!ortho) ImGui::SliderAngle("vfov", &vfov, 0,180);
+		if (!ortho) ImGui::SliderAngle("FOV (vertical)", &vfov, 0,180);
 		else        ImGui::DragFloat("ortho_size", &ortho_size, 0.1f, 0, 8000, "%.3f", ImGuiSliderFlags_Logarithmic);
+
+		ImGui::SliderAngle("default FOV", &default_vfov, 0,180);
+		if (ImGui::Button("reset vfov"))
+			vfov = default_vfov;
 
 		ImGui::Text("cur_speed: %.3f", cur_speed);
 
@@ -534,6 +539,9 @@ struct Flycam {
 			} else {
 				float delta_log = -0.1f * I.mouse_wheel_delta;
 				vfov = clamp(powf(2.0f, log2f(vfov) + delta_log), deg(1.0f/10), deg(170));
+
+				if (I.buttons[binds.modifier].is_down && delta_log != 0)
+					vfov = default_vfov;
 			}
 		}
 

@@ -265,7 +265,7 @@ struct RenderScale {
 	bool changed = false;
 	
 	void imgui () {
-		if (ImGui::TreeNode("RenderScale")) {
+		if (imgui_Header("RenderScale", true)) {
 
 			ImGui::Text("res: %4d x %4d px (%5.2f Mpx)", size.x, size.y, (float)(size.x * size.y) / (1000*1000));
 			changed = ImGui::SliderFloat("renderscale", &renderscale, 0.02f, 2.0f);
@@ -273,7 +273,7 @@ struct RenderScale {
 			//changed = ImGui::Checkbox("depth_float32", &depth_float32) || changed;
 			changed = ImGui::Checkbox("nearest", &nearest) || changed;
 
-			ImGui::TreePop();
+			ImGui::PopID();
 		}
 	}
 
