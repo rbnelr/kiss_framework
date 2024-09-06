@@ -77,16 +77,21 @@ namespace shapes {
 
 	#define REND_QUAD_INDICES(a,b,c,d)     (b), (c), (a), (a), (c), (d)
 	#define REND_QUAD_INDICES_ROT(a,b,c,d) (a), (b), (d), (b), (c), (d)
-
+	
 	template <typename T>
-	inline void push_quad_indices (std::vector<T>& vec, T a, T b, T c, T d) {
-		T* indx = push_back(vec, 6);
+	inline void set_quad_indices (T* indx, T a, T b, T c, T d) {
 		indx[0] = b;
 		indx[1] = c;
 		indx[2] = a;
 		indx[3] = a;
 		indx[4] = c;
 		indx[5] = d;
+	}
+
+	template <typename T>
+	inline void push_quad_indices (std::vector<T>& vec, T a, T b, T c, T d) {
+		T* indx = push_back(vec, 6);
+		set_quad_indices(indx, a,b,c,d);
 	}
 	
 	inline constexpr uint16_t WIRE_QUAD_INDICES[] = {
