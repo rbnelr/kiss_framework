@@ -305,6 +305,9 @@ namespace shader {
 		Shader* compile_compute (char const* filename, MacroDefinitions&& macros = {}, bool allow_fail=false, char const* dbgname=nullptr) {
 			return compile_stages(filename, { COMPUTE_SHADER }, std::move(macros), allow_fail, dbgname);
 		}
+		Shader* compile_geometry (char const* filename, MacroDefinitions&& macros = {}, bool allow_fail=false, char const* dbgname=nullptr) {
+			return compile_stages(filename, { VERTEX_SHADER, GEOMETRY_SHADER, FRAGMENT_SHADER }, std::move(macros), allow_fail, dbgname);
+		}
 
 		Shader* compile_stages (char const* filename, std::initializer_list<Stage> stages,
 				MacroDefinitions&& macros, bool allow_fail=false, char const* dbgname=nullptr) {
