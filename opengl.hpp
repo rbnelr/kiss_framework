@@ -788,19 +788,17 @@ inline void upload_buffer (GLenum target, GLuint buf, size_t size, void const* d
 	glBindBuffer(target, 0);
 }
 // upload data to buffer via pointer in a streaming way (buffer orphaning)
-inline void stream_buffer (GLenum target, GLuint buf, size_t size, void const* data, GLenum usage = GL_STREAM_DRAW) {
-	glBindBuffer(target, buf);
+inline void stream_buffer (GLenum target, GLuint buf, size_t size, void const* data) {
+	upload_buffer(target, buf, size, data, GL_STREAM_DRAW);
+}
 
-	glInvalidateBufferData(buf); // Does this help anything?
-	glBufferData(target, size, nullptr, usage);
-	if (size > 0)
-		glBufferData(target, size, data, usage);
-
-	glBindBuffer(target, 0);
+template <typename T>
+inline void upload_buffer (GLenum target, GLuint buf, std::vector<T> const& data, GLenum usage = GL_STATIC_DRAW) {
+	upload_buffer(target, buf, sizeof(T)*data.size(), data.data(), usage);
 }
 template <typename T>
-inline void stream_buffer (GLenum target, GLuint buf, std::vector<T> const& data, GLenum usage = GL_STREAM_DRAW) {
-	stream_buffer(target, buf, sizeof(T)*data.size(), data.data(), usage);
+inline void stream_buffer (GLenum target, GLuint buf, std::vector<T> const& data) {
+	upload_buffer(target, buf, sizeof(T)*data.size(), data.data(), GL_STREAM_DRAW);
 }
 
 // Non-indexed (VAO + VBO) with uploading functions (vao configured externally)
@@ -813,7 +811,7 @@ struct VertexBuffer {
 		upload_buffer(GL_ARRAY_BUFFER, vbo, (GLsizeiptr)vertex_count * sizeof(VT), vertices, GL_STATIC_DRAW);
 	}
 	template <typename VT> void stream (VT const* vertices, size_t vertex_count) {
-		stream_buffer(GL_ARRAY_BUFFER, vbo, (GLsizeiptr)vertex_count * sizeof(VT), vertices, GL_STREAM_DRAW);
+		stream_buffer(GL_ARRAY_BUFFER, vbo, (GLsizeiptr)vertex_count * sizeof(VT), vertices);
 	}
 
 	template <typename VT> void upload (std::vector<VT> const& vertices) {
@@ -886,7 +884,7 @@ struct VertexBufferInstancedI {
 		upload_buffer(GL_ELEMENT_ARRAY_BUFFER, ebo, (GLsizeiptr)index_count  * sizeof(IT),  indices, GL_STATIC_DRAW);
 	}
 	template <typename IT> void stream_instances (IT const* instance_data, size_t vertex_count) {
-		stream_buffer(GL_ARRAY_BUFFER, instances, (GLsizeiptr)vertex_count * sizeof(IT), instance_data, GL_STREAM_DRAW);
+		stream_buffer(GL_ARRAY_BUFFER, instances, (GLsizeiptr)vertex_count * sizeof(IT), instance_data);
 	}
 	
 	template <typename VT, typename IT> void upload_mesh (std::vector<VT> const& vertices, std::vector<IT> const& indices) {
