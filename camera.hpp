@@ -27,22 +27,23 @@ struct View3D {
 	// viewport size (pixels)
 	float2		viewport_size;
 	float2		inv_viewport_size;
+	
+	void screen_ray (float2 uv, float3* out_ray_pos=nullptr, float3* out_ray_dir=nullptr) const {
+		// TODO: fix this for ortho
 
+		float3 ray_dir = (float3x3)cam2world * float3(frust_near_size * uv, -clip_near);
+		float3 ray_pos = cam_pos + ray_dir;
+		
+		if (out_ray_pos) *out_ray_pos = ray_pos;
+		if (out_ray_dir) *out_ray_dir = normalize(ray_dir);
+	}
 	bool cursor_ray (Input& I, float3* out_ray_pos=nullptr, float3* out_ray_dir=nullptr) const {
 		if (!I.cursor_enabled) return false;
 
 		float2 px_center = I.cursor_pos_bottom_up() + 0.5f;
 
 		float2 uv = px_center * inv_viewport_size - 0.5f;
-
-		// TODO: fix this for ortho
-
-		float3 ray_dir = (float3x3)cam2world * float3(frust_near_size * uv, -clip_near);
-		float3 ray_pos = cam_pos + ray_dir;
-
-		if (out_ray_pos) *out_ray_pos = ray_pos;
-		if (out_ray_dir) *out_ray_dir = normalize(ray_dir);
-
+		screen_ray(uv, out_ray_pos, out_ray_dir);
 		return true;
 	}
 };
