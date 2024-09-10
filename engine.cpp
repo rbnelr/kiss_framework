@@ -640,12 +640,20 @@ void Engine::draw_imgui () {
 	imgui_end_frame(*this);
 }
 
+void clear_window_color (GLFWwindow* window) {
+	glClearColor(0.02f, 0.03f, 0.05f, 1.0f);
+	glClear(GL_COLOR_BUFFER_BIT);
+	glfwSwapBuffers(window);
+}
+
 Engine::Engine (const char* window_title) {
 	ZoneScoped;
 
 	log("Engine startup...\n");
 
 	window_setup(*this, window_title);
+	
+	clear_window_color(window); // hide the ugly white rectangle on black background that happens due to loading time of the game
 
 	{ // load window placement
 		HWND hwnd = glfwGetWin32Window(window);
@@ -654,6 +662,8 @@ Engine::Engine (const char* window_title) {
 			SetWindowPlacement(hwnd, &pl);
 		}
 	}
+
+	clear_window_color(window);
 }
 Engine::~Engine () {
 	ZoneScoped;

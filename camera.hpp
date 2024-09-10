@@ -30,6 +30,7 @@ struct View3D {
 	
 	void screen_ray (float2 uv, float3* out_ray_pos=nullptr, float3* out_ray_dir=nullptr) const {
 		// TODO: fix this for ortho
+		uv -= 0.5f;
 
 		float3 ray_dir = (float3x3)cam2world * float3(frust_near_size * uv, -clip_near);
 		float3 ray_pos = cam_pos + ray_dir;
@@ -42,7 +43,7 @@ struct View3D {
 
 		float2 px_center = I.cursor_pos_bottom_up() + 0.5f;
 
-		float2 uv = px_center * inv_viewport_size - 0.5f;
+		float2 uv = px_center * inv_viewport_size;
 		screen_ray(uv, out_ray_pos, out_ray_dir);
 		return true;
 	}
