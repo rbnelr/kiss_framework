@@ -146,6 +146,28 @@ namespace shapes {
 #include "text_render.hpp" // ugh, but I hate having to break down files even more just to fix circular include
 namespace render {
 
+struct SimpleColors {
+	static constexpr lrgba COLS[] = {
+		{1,0,0,1},
+		{0,1,0,1},
+		{0,0,1,1},
+		{1,1,0,1},
+		{1,0,1,1},
+		{0,1,1,1},
+
+		{1.0f, 0.5f, 0.5f, 1},
+		{0.5f, 1.0f, 0.5f, 1},
+		{0.5f, 0.5f, 1.0f, 1},
+		{1.0f, 1.0f, 0.5f, 1},
+		{1.0f, 0.5f, 1.0f, 1},
+		{0.5f, 1.0f, 1.0f, 1},
+	};
+
+	static lrgba get (int idx) {
+		return COLS[wrap(idx, ARRLEN(COLS))];
+	}
+};
+
 struct DebugDraw {
 	struct LineVertex {
 		float3 pos;
@@ -166,22 +188,6 @@ struct DebugDraw {
 			ATTRIB(FLT,3, TriVertex, norm),
 			ATTRIB(FLT,4, TriVertex, col),
 		)
-	};
-
-	static constexpr lrgba COLS[] = {
-		{1,0,0,1},
-		{0,1,0,1},
-		{0,0,1,1},
-		{1,1,0,1},
-		{1,0,1,1},
-		{0,1,1,1},
-
-		{1.0f, 0.5f, 0.5f, 1},
-		{0.5f, 1.0f, 0.5f, 1},
-		{0.5f, 0.5f, 1.0f, 1},
-		{1.0f, 1.0f, 0.5f, 1},
-		{1.0f, 0.5f, 1.0f, 1},
-		{0.5f, 1.0f, 1.0f, 1},
 	};
 
 	std::vector<LineVertex> lines;

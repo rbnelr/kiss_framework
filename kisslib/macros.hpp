@@ -141,7 +141,9 @@ _Defer<Func> _defer (Func func) {
 	inline constexpr e operator~ (e l) { return (e)(~(itype)l); } \
 	inline e& operator|= (e& l, e r) { return l = (e)((itype)l | (itype)r); } \
 	inline e& operator&= (e& l, e r) { return l = (e)((itype)l & (itype)r); } \
-	inline e& operator^= (e& l, e r) { return l = (e)((itype)l ^ (itype)r); }
+	inline e& operator^= (e& l, e r) { return l = (e)((itype)l ^ (itype)r); } \
+	inline bool any_set (e l, e r) { return (itype)l & (itype)r; } \
+	inline bool all_set (e l, e r) { return ((itype)l & (itype)r) == (itype)r; }
 
 #define ENUM_BITFLAG_OPERATORS(e) ENUM_BITFLAG_OPERATORS_TYPE(e, int)
 
