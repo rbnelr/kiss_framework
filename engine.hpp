@@ -22,14 +22,13 @@ public:
 	Input input = {};
 	
 	
-private:
 	bool _draw_on_size_events = false;
 	bool _was_not_visible_and_paused = false;
 
 	int _vsync_on_interval = 1;
 
 	ShouldClose _should_close = Engine::CLOSE_CANCEL;
-public:
+
 
 	DirectoyChangeNotifier file_changes = DirectoyChangeNotifier("./", true);
 	
