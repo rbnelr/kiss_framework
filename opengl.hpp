@@ -829,12 +829,12 @@ struct VertexBufferI {
 	VertexBufferI (std::string_view label): vao{label + ".vao"}, vbo{label + ".vbo"}, ebo{label + ".ebo"} {}
 	
 	template <typename VT, typename IT> void upload (VT const* vertices, size_t vertex_count, IT const* indices, size_t index_count) {
-		upload_buffer(GL_ARRAY_BUFFER        , vbo, (GLsizeiptr)vertex_count * sizeof(VT), vertices, GL_STATIC_DRAW);
-		upload_buffer(GL_ELEMENT_ARRAY_BUFFER, ebo, (GLsizeiptr)index_count  * sizeof(IT), indices , GL_STATIC_DRAW);
+		upload_buffer(GL_ARRAY_BUFFER        , vbo, (GLsizeiptr)vertex_count * sizeof(VT), vertices);
+		upload_buffer(GL_ELEMENT_ARRAY_BUFFER, ebo, (GLsizeiptr)index_count  * sizeof(IT), indices );
 	}
 	template <typename VT, typename IT> void stream (VT const* vertices, size_t vertex_count, IT const* indices, size_t index_count) {
-		stream_buffer(GL_ARRAY_BUFFER        , vbo, (GLsizeiptr)vertex_count * sizeof(VT), vertices, GL_STREAM_DRAW);
-		stream_buffer(GL_ELEMENT_ARRAY_BUFFER, ebo, (GLsizeiptr)index_count  * sizeof(IT), indices , GL_STREAM_DRAW);
+		stream_buffer(GL_ARRAY_BUFFER        , vbo, (GLsizeiptr)vertex_count * sizeof(VT), vertices);
+		stream_buffer(GL_ELEMENT_ARRAY_BUFFER, ebo, (GLsizeiptr)index_count  * sizeof(IT), indices );
 	}
 
 	template <typename VT, typename IT> void upload (std::vector<VT> const& vertices, std::vector<IT> const& indices) {
