@@ -9,11 +9,27 @@ struct GLFWcursor;
 class Engine {
 public:
 
+	enum ShouldClose {
+		CLOSE_CANCEL=0,
+		CLOSE_PENDING,
+		CLOSE_NOW,
+	};
+
 	Engine (const char* window_title);
 	virtual ~Engine ();
 
 	GLFWwindow* window;
 	Input input = {};
+	
+	
+private:
+	bool _draw_on_size_events = false;
+	bool _was_not_visible_and_paused = false;
+
+	int _vsync_on_interval = 1;
+
+	ShouldClose _should_close = Engine::CLOSE_CANCEL;
+public:
 
 	DirectoyChangeNotifier file_changes = DirectoyChangeNotifier("./", true);
 	
@@ -21,11 +37,6 @@ public:
 	void close ();
 
 	
-	enum ShouldClose {
-		CLOSE_CANCEL=0,
-		CLOSE_PENDING,
-		CLOSE_NOW,
-	};
 	// called during imgui execution when app wants to close
 	// return CLOSE_PENDING when you want to open a popup until the user decides if they really want to close
 	//   -> close_confirmation will be called again the next frame

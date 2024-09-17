@@ -239,13 +239,17 @@ struct Input {
 		}
 	}
 
-	void get_time () {
+	void get_time (bool was_not_visible_and_paused) {
 		// Calc next frame dt based on this frame duration
 		uint64_t now = kiss::get_timestamp();
 
 		real_dt = (float)(now - frame_begin_ts) / (float)kiss::timestamp_freq;
 
 		frame_begin_ts = now;
+
+		if (was_not_visible_and_paused) {
+			real_dt = 0; // do not count time elapsed while application was minimized etc.
+		}
 	}
 
 	// used to ignore inputs that imgui has already captured

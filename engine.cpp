@@ -12,13 +12,13 @@
 #define GLFW_EXPOSE_NATIVE_WIN32
 #include "GLFW/glfw3native.h"
 
+inline constexpr int2 MIN_WINDOW_SIZE = 128;
+
 inline int _vsync_on_interval = 1;
 void Engine::set_vsync (bool vsync) {
 	this->vsync = vsync;
 	glfwSwapInterval(vsync ? _vsync_on_interval : 0);
 }
-
-inline Engine::ShouldClose _should_close = Engine::CLOSE_CANCEL;
 
 //// Imgui stuff
 void imgui_setup (Engine& eng) {
@@ -150,8 +150,8 @@ void do_imgui (Engine& eng) {
 	}
 	ImGui::End();
 
-	if (_should_close == Engine::CLOSE_PENDING) {
-		_should_close = eng.close_confirmation();
+	if (eng._should_close == Engine::CLOSE_PENDING) {
+		eng._should_close = eng.close_confirmation();
 	}
 	
 #if IMGUI_DEMO
@@ -217,6 +217,9 @@ void window_setup (Engine& eng, char const* window_title) {
 				fatal_error("glfwCreateWindow error!");
 			}
 		}
+
+		// Set minimum window size to avoid problems in renderer with postprocessing crashing due to too little mip levels (bloom currently)
+		glfwSetWindowSizeLimits(eng.window, MIN_WINDOW_SIZE.x, MIN_WINDOW_SIZE.y, GLFW_DONT_CARE, GLFW_DONT_CARE);
 	}
 
 	if (glfwRawMouseMotionSupported())
@@ -477,8 +480,10 @@ void glfw_input_pre_gameloop (Engine& eng) {
 void glfw_sample_non_callback_input (Engine& eng) {
 	ZoneScoped;
 
-	glfwGetFramebufferSize(eng.window, &eng.input.window_size.x, &eng.input.window_size.y);
-
+	int2 sz = 0;
+	glfwGetFramebufferSize(eng.window, &sz.x, &sz.y);
+	eng.input.window_size = max(sz, MIN_WINDOW_SIZE);
+	
 	double x, y;
 	glfwGetCursorPos(eng.window, &x, &y);
 
@@ -581,7 +586,6 @@ void glfw_mouse_scroll (GLFWwindow* wnd, double xoffset, double yoffset) {
 // TODO: should switch_fullscreen even happen during resizing? why do we get input callbacks if we don't do glfwPollEvents?
 //      -> probably due to windows message queue weirdness (which is why we need this in the first place, blocking glfwPollEvents is just stupid)
 //      -> just leave this in since it fixes it perfectly
-bool draw_on_size_events = false;
 
 void window_frame (Engine& eng);
 
@@ -589,9 +593,9 @@ GuiConfirm should_close;
 
 // enable drawing frames when resizing the window
 void glfw_window_size_event (GLFWwindow* wnd, int width, int height) {
-	if (!draw_on_size_events) return;
-
 	auto* eng = (Engine*)glfwGetWindowUserPointer(wnd);
+	
+	if (!eng->_draw_on_size_events) return;
 
 	window_frame(*eng);
 }
@@ -610,8 +614,33 @@ void glfw_register_input_callbacks (Engine& eng) {
 	glfwGetWindowSize(eng.window, &eng.window_size.x, &eng.window_size.y);
 }
 
+void pause_while_window_not_visible (Engine& eng) {
+	for (;;) {
+		bool visible = !glfwGetWindowAttrib(eng.window, GLFW_ICONIFIED) && // iconified == minimized
+						glfwGetWindowAttrib(eng.window, GLFW_VISIBLE);
+		// If window minimized or made invisible don't render
+		// achieve this by only returning to frame function if visible
+		if (visible)
+			return;
+
+		// otherwise loop
+		// but dont busy wait and waste cpu, instead go into event driven mode (wait until some event and recheck visibility)
+		// we might be woken up by other things than being made visible, but not sure how to avoid this, this shouldn't cause much cpu use though
+		
+		// I'm unsure how this interacts with glfw_window_size_event (rendering on resize)
+		// we would end up calling glfwWaitEvents from inside glfwPollEvents, which is just weird
+		// it seems like this works fine though, we don't get woken up until the window is maximized after minimizing,
+		// presumably because minimized windows don't get any other events
+		glfwWaitEvents();
+
+		eng._was_not_visible_and_paused = true;
+	}
+}
+
 ////
 void window_frame (Engine& eng) {
+	pause_while_window_not_visible(eng);
+
 	FrameMark;
 
 	glfw_sample_non_callback_input(eng);
@@ -630,8 +659,12 @@ void window_frame (Engine& eng) {
 	}
 
 	eng.input.clear_frame_input();
-	eng.input.get_time();
+
+	eng.input.get_time(eng._was_not_visible_and_paused);
+	eng._was_not_visible_and_paused = false;
+
 	eng.input.frame_counter++;
+
 
 	TracyGpuCollect;
 }
@@ -695,9 +728,9 @@ int Engine::main_loop () {
 	while (_should_close != CLOSE_NOW) {
 		{
 			ZoneScopedN("glfwPollEvents");
-			draw_on_size_events = true;
+			_draw_on_size_events = true;
 			glfwPollEvents();
-			draw_on_size_events = false;
+			_draw_on_size_events = false;
 		}
 
 		if (glfwWindowShouldClose(window)) {
