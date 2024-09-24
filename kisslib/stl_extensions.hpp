@@ -5,6 +5,7 @@
 #include <unordered_set>
 #include <memory>
 
+#if 0
 // Tracy tracked stl containers
 #ifdef TRACY_ENABLE
 	#include "tracy/Tracy.hpp"
@@ -68,6 +69,7 @@
 
 	template <typename Key, typename Hash = std::hash<Key>, typename Pred = std::equal_to<Key>>
 	using std_unordered_set = std::unordered_set<Key, Hash, Pred>;
+#endif
 #endif
 
 namespace kiss {
