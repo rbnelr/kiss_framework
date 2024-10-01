@@ -79,6 +79,23 @@ void DebugDraw::wire_quad (float3 const& pos, float2 size, lrgba const& col) {
 		out++;
 	}
 }
+void DebugDraw::wire_quad (float3 const& pos, float3 const& forw, float3 const& right, lrgba const& col) {
+	auto* out = push_back(lines, 4*2);
+
+	float3 A = pos;
+	float3 B = pos + right;
+	float3 C = pos + right + forw;
+	float3 D = pos + forw;
+
+	*out++ = { A, col };
+	*out++ = { B, col };
+	*out++ = { B, col };
+	*out++ = { C, col };
+	*out++ = { C, col };
+	*out++ = { D, col };
+	*out++ = { D, col };
+	*out++ = { A, col };
+}
 void DebugDraw::wire_cube (float3 const& pos, float3 const& size, lrgba const& col) {
 	auto* out = push_back(lines, ARRLEN(shapes::WIRE_CUBE_INDICES));
 

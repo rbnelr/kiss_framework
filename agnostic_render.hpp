@@ -212,6 +212,7 @@ struct DebugDraw {
 	void arrow (float3 const& pos, float3 const& dir, float head_sz, lrgba const& col);
 
 	void wire_quad (float3 const& pos, float2 size, lrgba const& col);
+	void wire_quad (float3 const& pos, float3 const& forw, float3 const& right, lrgba const& col);
 	void wire_cube (float3 const& pos, float3 const& size, lrgba const& col);
 	void wire_circle (float3 const& pos, float r, lrgba const& col, int angres=32);
 	void wire_sphere (float3 const& pos, float r, lrgba const& col, int angres=32, int wires=16);
