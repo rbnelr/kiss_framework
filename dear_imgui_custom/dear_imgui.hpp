@@ -10,6 +10,19 @@
 #include "kisslib/containers.hpp"
 #include <vector>
 
+namespace ImGui {
+	static void HelpMarker (const char* desc) {
+		ImGui::TextDisabled("(?)");
+		if (ImGui::BeginItemTooltip())
+		{
+			ImGui::PushTextWrapPos(ImGui::GetFontSize() * 35.0f);
+			ImGui::TextUnformatted(desc);
+			ImGui::PopTextWrapPos();
+			ImGui::EndTooltip();
+		}
+	}
+}
+
 template <typename T, typename FUNC>
 bool imgui_edit_vector (const char* label, std::vector<T>& vec, FUNC item, bool can_resize=true, bool default_open=true, bool subnodes=true) {
 	if (!ImGui::TreeNodeEx(label, default_open ? ImGuiTreeNodeFlags_DefaultOpen : 0)) return false;

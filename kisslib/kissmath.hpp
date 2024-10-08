@@ -37,9 +37,31 @@
 #include "assert.h"
 
 #include "macros.hpp"
+#include "string.hpp"
 
 namespace kissmath {
 	
+	inline std::string format_bytes (uint64_t num) { 
+		struct Unit { uint64_t num; const char* unit; };
+		static constexpr Unit BYTE_UNITS[] = {
+			{    1ull                ,  "B" },
+			{ 1024ull                , "KB" },
+			{ 1024ull*1024           , "MB" },
+			{ 1024ull*1024*1024      , "GB" },
+			{ 1024ull*1024*1024*1024 , "TB" },
+		};
+
+		const char* unit;
+		float val;
+		if      (num < 1024ull               ) { val = (float)num;                            unit = " B"; }
+		else if (num < 1024ull*1024          ) { val = (float)num / 1024.0f;                  unit = "KB"; }
+		else if (num < 1024ull*1024*1024     ) { val = (float)num / (1024.0f*1024);           unit = "MB"; }
+		else if (num < 1024ull*1024*1024*1024) { val = (float)num / (1024.0f*1024*1024);      unit = "GB"; }
+		else                                   { val = (float)num / (1024.0f*1024*1024*1024); unit = "TB"; }
+
+		return kiss::prints("%8.1f %s", val, unit);
+	}
+
 	/*
 	static constexpr uint64_t KB = 1024ull;
 	static constexpr uint64_t MB = 1024ull*1024;
