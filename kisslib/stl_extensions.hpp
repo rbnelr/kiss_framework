@@ -113,6 +113,66 @@ namespace kiss {
 		return false;
 	}
 
+	// scans vector for (vec[i] == r), removes first matching element only
+	// returns true if was removed
+	template <typename VT, typename T, typename Alloc>
+	inline bool remove_first (std::vector<VT, Alloc>& vec, T const& r) {
+		for (auto it = vec.begin(); it != vec.end(); ++it) {
+			if (*it == r) {
+				vec.erase(it);
+				return true;
+			}
+		}
+		return false;
+	}
+
+	// scans vector for (vec[i] == r), removes first matching element only
+	// returns true if was removed
+	template <typename VT, typename T, typename EQUAL, typename Alloc>
+	inline bool remove_first (std::vector<VT, Alloc>& vec, T const& r, EQUAL are_equal) {
+		for (auto it = vec.begin(); it != vec.end(); ++it) {
+			if (are_equal(*it, r)) {
+				vec.erase(it);
+				return true;
+			}
+		}
+		return false;
+	}
+	
+	// scans vector for (vec[i] == r), removes all matching elements
+	// returns removed count
+	template <typename VT, typename T, typename Alloc>
+	inline bool remove_if (std::vector<VT, Alloc>& vec, T const& r) {
+		int count = 0;
+		for (auto it = vec.begin(); it != vec.end();) {
+			if (*it == r) {
+				it = vec.erase(it);
+				count++;
+			}
+			else {
+				++it;
+			}
+		}
+		return false;
+	}
+
+	// scans vector for (vec[i] == r), removes all matching elements
+	// returns removed count
+	template <typename VT, typename T, typename EQUAL, typename Alloc>
+	inline bool remove_if (std::vector<VT, Alloc>& vec, T const& r, EQUAL are_equal) {
+		int count = 0;
+		for (auto it = vec.begin(); it != vec.end();) {
+			if (are_equal(*it, r)) {
+				it = vec.erase(it);
+				count++;
+			}
+			else {
+				++it;
+			}
+		}
+		return false;
+	}
+
 	template <typename T>
 	T* push_back (std::vector<T>& vec, size_t count) {
 		size_t offs = vec.size();
